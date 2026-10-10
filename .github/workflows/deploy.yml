@@ -1,8 +1,8 @@
-# イベントを集め直して、合言葉URLの下に GitHub Pages で公開する。
+# イベントを集め直して、パスワード付きで GitHub Pages に公開する。
 #
-# リポジトリは公開なので、集めたデータと合言葉はここに置かない。
-# 合言葉は Secrets の SHARE_TOKEN に入れ、ビルド結果は Pages にだけ上げる。
-# 配るURLは https://<ユーザー名>.github.io/<リポジトリ名>/<合言葉>/
+# リポジトリは公開なので、集めたデータとパスワードはここに置かない。
+# パスワードは Secrets の SITE_PASSWORD に入れ、イベントは暗号化してから Pages に上げる。
+# URL は https://<ユーザー名>.github.io/<リポジトリ名>/ で、開くとパスワードを聞かれる。
 name: deploy
 
 on:
@@ -28,11 +28,10 @@ jobs:
     environment:
       name: github-pages
     steps:
-      # 合言葉が無いと毎回ランダムに作られてURLが変わり、しかも公開ログに出てしまう。
-      # 収集（相手サーバーへのアクセス）より前に止める
-      - run: test -n "$SHARE_TOKEN" || { echo "Secrets に SHARE_TOKEN を入れてください"; exit 1; }
+      # パスワードが無いと暗号化できない。収集（相手サーバーへのアクセス）より前に止める
+      - run: test -n "$SITE_PASSWORD" || { echo "Secrets に SITE_PASSWORD を入れてください"; exit 1; }
         env:
-          SHARE_TOKEN: ${{ secrets.SHARE_TOKEN }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
 
       - uses: actions/checkout@v4
 
@@ -56,12 +55,17 @@ jobs:
         env:
           CONNPASS_API_KEY: ${{ secrets.CONNPASS_API_KEY }}
 
-      - run: npm run share
+      - run: npm run build
+
+      # 平文の events.json を消して、暗号化した events.bin だけを残す
+      - run: npm run seal
         env:
-          SHARE_TOKEN: ${{ secrets.SHARE_TOKEN }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+
+      - run: test ! -e dist/data/events.json
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: share
+          path: dist
 
       - uses: actions/deploy-pages@v4

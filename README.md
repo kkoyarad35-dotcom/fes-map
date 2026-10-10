@@ -30,7 +30,27 @@ npm run build     # dist/ に出力（相対パス出力なのでどこに置い
 `dist/` を Netlify / Vercel / GitHub Pages / Cloudflare Pages などに置けば、
 HTTPS で配信されて現在地取得も PWA のホーム画面追加も有効になる。
 
-### URLを教えた人だけに配る
+### GitHub Pages にパスワード付きで公開する（いまの本番）
+
+`.github/workflows/deploy.yml` が毎日 03:00 JST に「収集 → ビルド → 暗号化 → Pages へ公開」を行う。
+URL は `https://kkoyarad35-dotcom.github.io/fes-map/` で、開くとパスワードを聞かれる。
+
+- GitHub Pages はサーバー側で認証を掛けられないので、**イベントデータ自体を暗号化**して置く。
+  `npm run seal` が `dist/data/events.json` を AES-256-GCM（鍵は PBKDF2-SHA256 60万回）で
+  `events.bin` に置き換え、平文は消す。復号はブラウザ側の `src/sealed.ts`
+- パスワードは Secrets の `SITE_PASSWORD`。変えたら Actions を手動実行すれば反映され、
+  各端末に覚えさせた鍵は自動で無効になって入力し直しになる
+- リポジトリは公開なので、集めたデータ（`public/data/events.json`）はコミットしない
+- 守れるのは**イベントデータ**だけ。アプリの画面と地図は誰でも開ける。
+  またパスワードが短い・推測しやすいと、`events.bin` を落として総当たりされうる
+
+手元で確かめる:
+
+```powershell
+npm run build; $env:SITE_PASSWORD = "試しのパスワード"; npm run seal; npx vite preview
+```
+
+### URLを教えた人だけに配る（以前の方式）
 
 誰でも辿れる場所には置きたくないので、**推測できない1階層（合言葉）の下**に
 アプリを置いて、そのURLを直接渡す形にしてある。
