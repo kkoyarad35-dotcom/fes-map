@@ -27,7 +27,8 @@ const TOKEN_FILE = new URL('../data/.share-token', import.meta.url);
  */
 const ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
 const TOKEN_LENGTH = 26;
-const TOKEN_PATTERN = /^[a-z2-9]{8,64}$/;
+// 自分で決める合言葉（SHARE_TOKEN）には 0 / 1 も使えるようにしておく
+const TOKEN_PATTERN = /^[a-z0-9]{8,64}$/;
 
 function newToken() {
   // 32 は 256 を割り切るので、乱数バイトをそのまま剰余しても偏らない
@@ -42,7 +43,7 @@ async function resolveToken({ rotate }) {
   const fromEnv = process.env.SHARE_TOKEN?.trim();
   if (fromEnv) {
     if (!TOKEN_PATTERN.test(fromEnv)) {
-      throw new Error(`SHARE_TOKEN は英小文字と2〜9の8〜64文字にしてください: ${fromEnv}`);
+      throw new Error('SHARE_TOKEN は英小文字と数字の8〜64文字にしてください');
     }
     return { token: fromEnv, created: true };
   }

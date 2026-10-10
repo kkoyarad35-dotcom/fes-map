@@ -89,6 +89,7 @@ export async function collect({ dayKeys }) {
     const ymd = day.replaceAll('-', '');
 
     for (const genre of GENRES) {
+      if (isHostBlocked(ORIGIN)) break;
       for (let page = 1; page <= MAX_PAGES; page += 1) {
         // オフライン開催（et-0）に限る。オンラインは地図に出しても意味がない
         const base = `/s/et-0/${genre.code}/date-${ymd}/`;

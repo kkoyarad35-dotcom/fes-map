@@ -14,6 +14,14 @@ const lastRequestAt = new Map();
 /** 403/429 を返したホストは、その実行中はもう叩かない。 */
 const blockedHosts = new Set();
 
+/**
+ * 接続自体ができない（タイムアウト・DNS失敗など）が続いたら、そのホストは諦める。
+ * 海外のサーバー（GitHub Actions）からだと国内サイトに繋がらないことがあり、
+ * 1件ごとに接続タイムアウト（約10秒）を待つと、それだけで数十分を空費する。
+ */
+const MAX_NETWORK_FAILURES = 3;
+const networkFailures = new Map();
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function keyFor(url) {
@@ -105,6 +113,7 @@ export async function cachedFetch(
       return { ok: false, status: res.status, buffer: null, fromCache: false };
     }
 
+    networkFailures.delete(host);
     const buffer = await res.arrayBuffer();
     if (res.ok) {
       await writeFile(dataPath, Buffer.from(buffer));
@@ -115,7 +124,16 @@ export async function cachedFetch(
       );
     }
     return { ok: res.ok, status: res.status, buffer, fromCache: false };
-  } catch {
+  } catch (err) {
+    // 黙って握りつぶすと「0件」としか見えず原因が追えないので、理由を出す
+    const reason = err?.cause?.code ?? err?.name ?? 'unknown';
+    const count = (networkFailures.get(host) ?? 0) + 1;
+    networkFailures.set(host, count);
+    console.warn(`  ${host}: 接続できませんでした (${reason})`);
+    if (count >= MAX_NETWORK_FAILURES) {
+      blockedHosts.add(host);
+      console.warn(`  ${host}: ${count}回続けて接続できないため、この実行では以降アクセスしません`);
+    }
     return { ok: false, status: 0, buffer: null, fromCache: false };
   }
 }
