@@ -1,0 +1,64 @@
+# イベントを集め直して、合言葉URLの下に GitHub Pages で公開する。
+#
+# リポジトリは公開なので、集めたデータと合言葉はここに置かない。
+# 合言葉は Secrets の SHARE_TOKEN に入れ、ビルド結果は Pages にだけ上げる。
+# 配るURLは https://<ユーザー名>.github.io/<リポジトリ名>/<合言葉>/
+name: deploy
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # 毎日 03:00 JST
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # 取得済みページとジオコーディング結果を持ち越して、相手のサーバーを叩く回数を減らす
+      - uses: actions/cache@v4
+        with:
+          path: |
+            data/.cache
+            data/.geocode-cache.json
+          key: collect-${{ github.run_id }}
+          restore-keys: collect-
+
+      - run: npm run collect
+        env:
+          CONNPASS_API_KEY: ${{ secrets.CONNPASS_API_KEY }}
+
+      # 合言葉が無いと毎回ランダムに作られてURLが変わり、しかも公開ログに出てしまう
+      - run: |
+          test -n "$SHARE_TOKEN" || { echo "Secrets に SHARE_TOKEN を入れてください"; exit 1; }
+          npm run share
+        env:
+          SHARE_TOKEN: ${{ secrets.SHARE_TOKEN }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: share
+
+      - uses: actions/deploy-pages@v4

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+share/
+data/.share-token
+.env
+.env.local
+data/.geocode-cache.json
+data/.cache/
+# 集めたイベントは公開リポジトリに置かない（再配布になる）。Actions が毎回集め直す
+public/data/events.json
+*.log

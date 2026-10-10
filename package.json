@@ -1,0 +1,22 @@
+{
+  "name": "fes-map",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "現在地の近くで今日〜1ヶ月先に開催されるフェス・イベントを地図で探すPWA",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "collect": "node scripts/build-events.mjs",
+    "share": "npm run build && node scripts/pack-share.mjs",
+    "share:preview": "node scripts/serve-share.mjs"
+  },
+  "dependencies": {
+    "maplibre-gl": "^4.7.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

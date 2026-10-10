@@ -1,0 +1,20 @@
+{
+  "name": "ちかフェス — 近くのフェスとイベント",
+  "short_name": "ちかフェス",
+  "description": "現在地の近くで今日から1ヶ月先までに開催されるフェス・イベントを地図で探せます。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ef6c3a",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
