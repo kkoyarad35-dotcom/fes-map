@@ -28,6 +28,12 @@ jobs:
     environment:
       name: github-pages
     steps:
+      # 合言葉が無いと毎回ランダムに作られてURLが変わり、しかも公開ログに出てしまう。
+      # 収集（相手サーバーへのアクセス）より前に止める
+      - run: test -n "$SHARE_TOKEN" || { echo "Secrets に SHARE_TOKEN を入れてください"; exit 1; }
+        env:
+          SHARE_TOKEN: ${{ secrets.SHARE_TOKEN }}
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -50,10 +56,7 @@ jobs:
         env:
           CONNPASS_API_KEY: ${{ secrets.CONNPASS_API_KEY }}
 
-      # 合言葉が無いと毎回ランダムに作られてURLが変わり、しかも公開ログに出てしまう
-      - run: |
-          test -n "$SHARE_TOKEN" || { echo "Secrets に SHARE_TOKEN を入れてください"; exit 1; }
-          npm run share
+      - run: npm run share
         env:
           SHARE_TOKEN: ${{ secrets.SHARE_TOKEN }}
 
