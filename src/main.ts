@@ -11,9 +11,11 @@ import {
   type LatLon,
 } from './geo';
 import { EventMap } from './map';
+import { SCENE_META, type Scene } from './scenes';
 import { CategoryChips } from './ui/chips';
+import { SceneChips } from './ui/sceneChips';
 import { DateStrip } from './ui/dateStrip';
-import { PEEK_PX, Sheet } from './ui/sheet';
+import { Sheet } from './ui/sheet';
 import { creditBlock, detailView, emptyState, eventCard } from './ui/views';
 import { setupUpdateButton } from './update';
 import type { EventBundle, EventCategory, EventItem } from './types';
@@ -32,10 +34,25 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+interface Area {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+function inArea(ev: EventItem, a: Area): boolean {
+  return ev.lon >= a.west && ev.lon <= a.east && ev.lat >= a.south && ev.lat <= a.north;
+}
+
 interface State {
   bundle: EventBundle;
   day: DayKey;
   categories: Set<EventCategory>;
+  /** 「デート」などのおすすめ。選んでいるときは、そのシーンに向くものだけをおすすめ順に出す。 */
+  scene: Scene | null;
+  /** 「このエリアで検索」で決めた範囲。一覧をこの中のイベントだけにする。 */
+  area: Area | null;
   query: string;
   origin: LatLon | null;
   selected: EventItem | null;
@@ -64,6 +81,8 @@ async function boot(): Promise<void> {
     bundle: EMPTY_BUNDLE,
     day: '',
     categories: new Set(),
+    scene: null,
+    area: null,
     query: '',
     origin: null,
     selected: null,
@@ -77,6 +96,14 @@ async function boot(): Promise<void> {
   const chips = new CategoryChips($('chips'), (selected) => {
     state.categories = selected;
     state.listLimit = LIST_PAGE_SIZE;
+    refresh();
+  });
+  const scenes = new SceneChips($('scenes'), (scene) => {
+    state.scene = scene;
+    state.selected = null;
+    state.mode = 'list';
+    state.listLimit = LIST_PAGE_SIZE;
+    if (scene) sheet.raiseAtLeast('half');
     refresh();
   });
   const strip = new DateStrip($('datestrip'), {
@@ -97,10 +124,22 @@ async function boot(): Promise<void> {
     onSelectCluster: (events, zoomIn) => {
       // 寄れば分かれるなら寄る。同じ会場で分かれないものは中身を一覧で見せる。
       if (zoomIn) zoomIn();
-      else showClusterList(events);
+      else {
+        showClusterList(events);
+        // 一覧を持ち上げたあとの見えている範囲の真ん中に、押した丸を持ってくる
+        map.centerOn(events[0]);
+      }
     },
     onVisibleChange: (count, markers, mode) => updateViewBadge(count, markers, mode),
   });
+
+  // 押したものを「見えている地図の真ん中」に持ってくるために、上下で隠れている高さを教える
+  const datestripEl = $('datestrip');
+  map.setInsetProvider(() => ({
+    top: datestripEl.getBoundingClientRect().bottom,
+    // 横長の画面ではシートは右側に出るので、下は隠れない
+    bottom: window.innerWidth >= 720 ? 0 : sheet.visibleHeight,
+  }));
 
   // タイルが出たら起動オーバーレイを外す。イベントの読み込みはまだ続いていてよい
   map.map.once('load', () => {
@@ -110,8 +149,22 @@ async function boot(): Promise<void> {
 
   // 自分で地図を動かしたあとに現在地へ飛ばすと操作を奪うので、見張っておく
   let userMoved = false;
+  const areaButton = $<HTMLButtonElement>('area-search');
   map.map.on('movestart', (e) => {
-    if ((e as { originalEvent?: unknown }).originalEvent) userMoved = true;
+    if (!(e as { originalEvent?: unknown }).originalEvent) return;
+    userMoved = true;
+    // 自分で地図を動かしたら「このエリアで検索」を出す
+    if (!state.loading) areaButton.hidden = false;
+  });
+  areaButton.addEventListener('click', () => {
+    state.area = map.visibleBounds();
+    state.selected = null;
+    state.cluster = null;
+    state.mode = 'list';
+    state.listLimit = LIST_PAGE_SIZE;
+    areaButton.hidden = true;
+    sheet.raiseAtLeast('half');
+    refresh();
   });
 
   // ---- 絞り込み ----
@@ -121,6 +174,7 @@ async function boot(): Promise<void> {
     const q = state.query.trim().toLowerCase();
     return state.bundle.events.filter((ev) => {
       if (state.categories.size > 0 && !state.categories.has(ev.category)) return false;
+      if (state.scene && !ev.scenes?.[state.scene]) return false;
       if (q) {
         const hay = `${ev.title} ${ev.venue ?? ''} ${ev.address ?? ''} ${ev.organizer ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -132,6 +186,17 @@ async function boot(): Promise<void> {
   function forDay(events: EventItem[], day: DayKey): EventItem[] {
     const list = events.filter((ev) => occursOn(ev, day));
     const origin = state.origin;
+    const scene = state.scene;
+    if (scene) {
+      // おすすめ順。近さも効かせないと、遠くの県の大型イベントばかり上に来る
+      const rank = (ev: EventItem): number => {
+        const score = (ev.scenes?.[scene] ?? 0) + ev.scale / 25;
+        if (!origin) return score;
+        const km = distanceMeters(origin, { lat: ev.lat, lon: ev.lon }) / 1000;
+        return score / (1 + km / 30);
+      };
+      return list.sort((a, b) => rank(b) - rank(a));
+    }
     if (origin) {
       return list.sort(
         (a, b) =>
@@ -160,12 +225,20 @@ async function boot(): Promise<void> {
 
     // カテゴリチップの件数は、その日のイベントだけを数える
     const byCat = new Map<EventCategory, number>();
+    const byScene = new Map<Scene, number>();
     const dayAll = state.bundle.events.filter((ev) => occursOn(ev, state.day));
-    for (const ev of dayAll) byCat.set(ev.category, (byCat.get(ev.category) ?? 0) + 1);
+    for (const ev of dayAll) {
+      byCat.set(ev.category, (byCat.get(ev.category) ?? 0) + 1);
+      for (const s of Object.keys(ev.scenes ?? {}) as Scene[]) byScene.set(s, (byScene.get(s) ?? 0) + 1);
+    }
     chips.setCounts(byCat, dayAll.length);
+    scenes.setCounts(byScene);
 
+    // 地図には全部出し、一覧だけを「このエリアで検索」の範囲に絞る
     map.setEvents(dayEvents);
     map.setSelected(state.selected?.id ?? null);
+    const area = state.area;
+    const listEvents = area ? dayEvents.filter((ev) => inArea(ev, area)) : dayEvents;
 
     if (state.mode === 'detail' && state.selected) {
       renderDetail(state.selected);
@@ -173,8 +246,8 @@ async function boot(): Promise<void> {
       renderClusterHead(state.cluster.length);
       renderList(state.cluster);
     } else {
-      renderHead(dayEvents.length);
-      renderList(dayEvents);
+      renderHead(listEvents.length);
+      renderList(listEvents);
     }
 
     if (opts.fit && dayEvents.length > 0 && !state.origin) map.fitTo(dayEvents.slice(0, 40));
@@ -185,8 +258,12 @@ async function boot(): Promise<void> {
     const title = document.createElement('div');
     title.className = 'sheet__title';
     const rel = relativeLabel(state.day);
+    const when = rel || longLabel(state.day);
+    const what = state.scene ? `${SCENE_META[state.scene].label}におすすめ` : 'のイベント';
     title.append(
-      document.createTextNode(rel ? `${rel}のイベント` : longLabel(state.day)),
+      document.createTextNode(
+        state.scene ? `${when}・${what}` : rel ? `${rel}${what}` : longLabel(state.day),
+      ),
     );
     const c = document.createElement('span');
     c.className = 'sheet__count';
@@ -197,11 +274,57 @@ async function boot(): Promise<void> {
     sub.className = 'sheet__sub';
     sub.textContent = state.loading
       ? 'イベントを読み込んでいます'
-      : state.origin
-        ? '現在地から近い順'
-        : '位置情報が使えないため、開始時刻順で表示しています';
+      : state.scene
+        ? state.origin
+          ? 'おすすめ度と近さの順'
+          : 'おすすめ度の順'
+        : state.origin
+          ? '現在地から近い順'
+          : '位置情報が使えないため、開始時刻順で表示しています';
 
     sheet.head.append(title, sub);
+
+    // いま効いている絞り込みを、その場で外せる形で見せる
+    const tags: HTMLElement[] = [];
+    if (state.area) {
+      tags.push(
+        filterTag('📍 地図のこのエリア', () => {
+          state.area = null;
+          state.listLimit = LIST_PAGE_SIZE;
+          refresh();
+        }),
+      );
+    }
+    if (state.scene) {
+      const meta = SCENE_META[state.scene];
+      tags.push(
+        filterTag(`${meta.emoji} ${meta.label}`, () => {
+          state.scene = null;
+          scenes.set(null);
+          state.listLimit = LIST_PAGE_SIZE;
+          refresh();
+        }),
+      );
+    }
+    if (tags.length > 0) {
+      const row = document.createElement('div');
+      row.className = 'sheet__filters';
+      row.append(...tags);
+      sheet.head.appendChild(row);
+    }
+  }
+
+  function filterTag(text: string, onClear: () => void): HTMLElement {
+    const tag = document.createElement('span');
+    tag.className = 'filter-tag';
+    tag.append(document.createTextNode(text));
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = '×';
+    x.setAttribute('aria-label', `${text} の絞り込みを外す`);
+    x.addEventListener('click', onClear);
+    tag.appendChild(x);
+    return tag;
   }
 
   function renderList(events: EventItem[]): void {
@@ -268,8 +391,9 @@ async function boot(): Promise<void> {
     state.selected = ev;
     state.mode = 'detail';
     map.setSelected(ev.id);
-    map.focusEvent(ev, PEEK_PX);
+    // 先にシートを上げてから、残った地図の真ん中に押したピンを持ってくる
     sheet.raiseAtLeast('half');
+    map.focusEvent(ev);
     renderDetail(ev);
   }
 

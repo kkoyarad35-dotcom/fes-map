@@ -17,7 +17,15 @@ import mapStyle from './map-style.json';
  *
  * 以前は地理院タイルの淡色地図（ラスタ）だった。軽いが色が無く、場所の見当がつけにくかった。
  */
-const BASE_STYLE = mapStyle as unknown as StyleSpecification;
+const RAW_STYLE = mapStyle as unknown as StyleSpecification;
+/**
+ * 建物の立体表示（fill-extrusion）は外して平面の地図にする。
+ * 寄ったときに街じゅうの建物を3Dで描くのがスマホでいちばん重く、カクつきの元だった。
+ */
+const BASE_STYLE: StyleSpecification = {
+  ...RAW_STYLE,
+  layers: RAW_STYLE.layers.filter((layer) => layer.type !== 'fill-extrusion'),
+};
 
 /**
  * 表示の段は2つだけ。
@@ -53,8 +61,11 @@ const ANCHOR_OVERRIDES: Record<string, LatLon> = {
 const PREF_NUMBER_MIN_PX = 16;
 /** 丸の下に出す県名の高さ（px）。 */
 const PREF_NAME_PX = 16;
-/** 一度に描くDOMマーカーの上限。1日分に絞られているので、普通はここまで来ない。 */
-const MAX_MARKERS = 600;
+/**
+ * 一度に描くDOMマーカーの上限。都心で引き気味に見ると数百件入るので、
+ * スマホで動かしても重くならない数に抑える。規模の大きいものから残る。
+ */
+const MAX_MARKERS = 300;
 /** このズーム以上で、ピンにイベント名を出す。 */
 const LABEL_FROM_ZOOM = 12.5;
 /**
@@ -79,6 +90,18 @@ interface Rect {
 
 function intersects(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+interface PrefLayout {
+  marker: Marker;
+  anchor: LatLon;
+  size: () => number;
+}
+
+interface MarkerEntry {
+  marker: Marker;
+  sizer?: (zoom: number) => void;
+  layout?: PrefLayout;
 }
 
 export interface EventMapCallbacks {
@@ -106,7 +129,10 @@ export class EventMap {
   /** 県の丸の大きさをズームに合わせ直す関数。描き直しを待たずにズーム中も追従させる。 */
   private prefSizers: ((zoom: number) => void)[] = [];
   /** 重なりを避けるために、県の丸の位置と今の大きさを持っておく。 */
-  private prefLayout: { marker: Marker; anchor: LatLon; size: () => number }[] = [];
+  private prefLayout: PrefLayout[] = [];
+  /** 前回描いたマーカー。キーが同じなら作り直さずに使い回す。 */
+  private markerCache = new Map<string, MarkerEntry>();
+  private nextMarkers = new Map<string, MarkerEntry>();
 
   constructor(container: HTMLElement, center: LatLon, cb: EventMapCallbacks) {
     this.cb = cb;
@@ -120,6 +146,14 @@ export class EventMap {
       attributionControl: { compact: true },      // 傾き・回転は今回のUIでは使わないので切って、誤操作を防ぐ
       pitchWithRotate: false,
       dragRotate: false,
+      maxPitch: 0,
+      // ここから下は滑らかさのため。
+      // 高解像度スマホ（3倍）でそのまま描くと画素数が9倍になるので2倍で止める
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      // 地名ラベルのフェードは見た目のわりに毎フレームの負担が大きい
+      fadeDuration: 0,
+      // 日本しか見ないので、横に並ぶ地球のコピーは描かない
+      renderWorldCopies: false,
     });
     this.map.touchZoomRotate.disableRotation();
     // 開発中だけ、画面確認のスクリプトから地図を動かせるようにしておく
@@ -176,14 +210,47 @@ export class EventMap {
     });
   }
 
-  /** 選択中のイベントが下部シートに隠れないよう、少し上にずらして寄る。 */
-  focusEvent(ev: EventItem, bottomInsetPx: number): void {
+  /**
+   * 上の検索バー・日付と下のシートに隠れている高さ（px）。
+   * シートの高さは操作で変わるので、使うときに main.ts へ聞く。
+   */
+  private insetProvider: () => { top: number; bottom: number } = () => ({ top: 0, bottom: 0 });
+
+  setInsetProvider(fn: () => { top: number; bottom: number }): void {
+    this.insetProvider = fn;
+  }
+
+  private get insets(): { top: number; bottom: number } {
+    return this.insetProvider();
+  }
+
+  /** その地点を「見えている地図の真ん中」に持ってくる。 */
+  centerOn(pos: LatLon, zoom?: number): void {
+    const insets = this.insets;
     this.map.easeTo({
-      center: [ev.lon, ev.lat],
-      zoom: Math.max(this.map.getZoom(), 15),
-      offset: [0, -bottomInsetPx / 2],
-      duration: 500,
+      center: [pos.lon, pos.lat],
+      zoom: zoom ?? this.map.getZoom(),
+      // 上下で隠れている量の差の半分だけずらすと、見えている範囲の中心に来る
+      offset: [0, (insets.top - insets.bottom) / 2],
+      duration: 450,
+      essential: true,
     });
+  }
+
+  /** 選んだイベントを見えている地図の真ん中に持ってきて、寄る。 */
+  focusEvent(ev: EventItem): void {
+    this.centerOn(ev, Math.max(this.map.getZoom(), 15));
+  }
+
+  /** いま見えている地図の範囲（上下のUIに隠れている部分は除く）。 */
+  visibleBounds(): { west: number; south: number; east: number; north: number } {
+    const canvas = this.map.getCanvas();
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const insets = this.insets;
+    const nw = this.map.unproject([0, Math.min(insets.top, h - 1)]);
+    const se = this.map.unproject([w, Math.max(h - insets.bottom, insets.top + 1)]);
+    return { west: nw.lng, north: nw.lat, east: se.lng, south: se.lat };
   }
 
   /**
@@ -222,11 +289,38 @@ export class EventMap {
     this.map.easeTo({ center, zoom: minZoom, offset: [0, -60], duration: 600 });
   }
 
-  private clearMarkers(): void {
-    for (const m of this.markers) m.remove();
+  /**
+   * 描き直しの始まり。前回のマーカーはすぐには消さず、同じ見た目のものは使い回す。
+   * 以前は地図を動かすたびに全マーカー（最大600個のDOM）を消して作り直していて、
+   * 指を離した直後に毎回引っかかっていた。
+   */
+  private beginMarkers(): void {
+    this.nextMarkers = new Map();
     this.markers = [];
     this.prefSizers = [];
     this.prefLayout = [];
+  }
+
+  /** 今回も使うマーカーを前回分から引き取る。見た目が変わるものはキーが変わるので作り直しになる。 */
+  private reuseMarker(key: string): MarkerEntry | undefined {
+    const entry = this.markerCache.get(key);
+    if (!entry) return undefined;
+    this.markerCache.delete(key);
+    this.keepMarker(key, entry);
+    return entry;
+  }
+
+  private keepMarker(key: string, entry: MarkerEntry): void {
+    this.nextMarkers.set(key, entry);
+    this.markers.push(entry.marker);
+    if (entry.sizer) this.prefSizers.push(entry.sizer);
+    if (entry.layout) this.prefLayout.push(entry.layout);
+  }
+
+  /** 今回使われなかったマーカーだけを消す。 */
+  private endMarkers(): void {
+    for (const entry of this.markerCache.values()) entry.marker.remove();
+    this.markerCache = this.nextMarkers;
   }
 
   /**
@@ -285,13 +379,14 @@ export class EventMap {
 
   private render(): void {
     if (!this.ready) return;
-    this.clearMarkers();
+    this.beginMarkers();
 
     const zoom = this.map.getZoom();
     const inView = this.projectInView();
 
     if (zoom < PIN_ZOOM) this.renderPrefectures(inView);
     else this.renderPins(inView, zoom);
+    this.endMarkers();
 
     this.cb.onVisibleChange(inView.length, this.markers.length, zoom < PIN_ZOOM ? 'pref' : 'pin');
   }
@@ -350,6 +445,14 @@ export class EventMap {
     const anchor: LatLon = ANCHOR_OVERRIDES[name] ?? center ?? nearestToCentroid(group).ev;
     const meta = CATEGORY_META[topCategory(events)] ?? CATEGORY_META.other;
 
+    // 件数と色が同じなら前回の丸をそのまま使う（「その他」は位置がイベント次第なので含める）
+    const key = `pref|${name}|${n}|${meta.color}|${anchor.lat},${anchor.lon}`;
+    const reused = this.reuseMarker(key);
+    if (reused) {
+      reused.sizer?.(this.map.getZoom());
+      return;
+    }
+
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'pref';
@@ -391,25 +494,23 @@ export class EventMap {
       label.hidden = !showName;
     };
     applySize(this.map.getZoom());
-    this.prefSizers.push(applySize);
 
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      // 必ず PIN_ZOOM まで寄る。ここで底上げしないと、県全体に収めただけで
-      // まだ PIN_ZOOM に届かず、押しても数字のままになる
+      // 押した丸を画面の真ん中に持ってきて、1件ずつ分かれる PIN_ZOOM まで寄る
       this.cb.onSelectCluster(events, () =>
-        this.fitTo(events, {
-          minZoom: PIN_ZOOM,
-          preferCenter: anchor,
-        }),
+        this.centerOn(anchor, Math.max(PIN_ZOOM, this.map.getZoom() + 1)),
       );
     });
 
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([anchor.lon, anchor.lat])
       .addTo(this.map);
-    this.markers.push(marker);
-    this.prefLayout.push({ marker, anchor, size: () => current });
+    this.keepMarker(key, {
+      marker,
+      sizer: applySize,
+      layout: { marker, anchor, size: () => current },
+    });
   }
 
   // ---- 寄ったとき: 1件ずつのピン ----
@@ -472,6 +573,9 @@ export class EventMap {
       placed.push(iconRect);
     }
 
+    const key = `pin|${stack.map((it) => it.ev.id).join(',')}|${selected}|${showLabel}`;
+    if (this.reuseMarker(key)) return;
+
     const el = document.createElement('button');
     el.type = 'button';
     el.className = `pin${selected ? ' pin--selected' : ''}`;
@@ -508,12 +612,11 @@ export class EventMap {
       else this.cb.onSelectEvent(ev);
     });
 
-    this.markers.push(
-      // 丸の中心をイベントの座標に合わせる。名前は絶対配置でこの箱の外に出してある
-      new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([ev.lon, ev.lat])
-        .addTo(this.map),
-    );
+    // 丸の中心をイベントの座標に合わせる。名前は絶対配置でこの箱の外に出してある
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([ev.lon, ev.lat])
+      .addTo(this.map);
+    this.keepMarker(key, { marker });
   }
 }
 

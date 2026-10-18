@@ -57,6 +57,11 @@ export class Sheet {
     return this.snap;
   }
 
+  /** いまの段で画面に出ている高さ（px）。動いている途中でも、行き先の段の値を返す。 */
+  get visibleHeight(): number {
+    return this.height - this.offsetFor(this.snap);
+  }
+
   /** 一覧から詳細に移るときなど、閉じすぎていたら少し持ち上げる。 */
   raiseAtLeast(snap: SheetSnap): void {
     const order: SheetSnap[] = ['peek', 'half', 'full'];

@@ -20,6 +20,11 @@ export interface EventItem {
   title: string;
   description?: string;
   category: EventCategory;
+  /**
+   * 「デート」「友達と」などのシーン別おすすめ度。**events.json には入っていない**。
+   * 読み込み時に src/scenes.ts がタイトルと説明文から付ける。入っていないシーンには出さない。
+   */
+  scenes?: Partial<Record<import('./scenes').Scene, number>>;
   /** 開催開始。ISO8601（JSTオフセット付き）。 */
   startAt: string;
   /** 開催終了。複数日開催のフェスはここが効いてくる。省略時は startAt と同日扱い。 */
