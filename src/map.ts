@@ -34,11 +34,21 @@ const PIN_ZOOM = 9;
 const PREF_MIN_PX = 20;
 const PREF_MAX_PX = 40;
 /**
- * 県が小さくてもこれ以上は縮めない（押せなくなるので）。
- * いちばん小さい沖縄県（境界まで6km）でもズーム5.5以上なら収まる。
- * それより引くと沖縄・東京あたりは点がわずかに枠を越える。
+ * 県が小さくてもこれ以上は縮めない。数字が読める大きさを保つ。
+ * 以前は8pxまで縮めて県の枠に収めていたが、数字の無い点ばかりになって読めなかった。
+ * 枠からはみ出す分は、丸どうしを押し離して（layoutPrefs）重ならないようにする。
  */
-const PREF_DOT_PX = 8;
+const PREF_DOT_PX = 22;
+/** 丸どうしの最低限のすき間（px）。 */
+const PREF_GAP_PX = 3;
+
+/**
+ * 県の形から求めた真ん中だと、地図の都市名と離れて見える県。
+ * 東京都は多摩の山まで含むので真ん中が奥多摩寄りになり、「東京都」の文字から遠かった。
+ */
+const ANCHOR_OVERRIDES: Record<string, LatLon> = {
+  '東京都': { lat: 35.6895, lon: 139.6917 }, // 都庁
+};
 /** これより小さい丸では数字が読めないので出さない。 */
 const PREF_NUMBER_MIN_PX = 16;
 /** 丸の下に出す県名の高さ（px）。 */
@@ -95,6 +105,8 @@ export class EventMap {
   private frame: number | null = null;
   /** 県の丸の大きさをズームに合わせ直す関数。描き直しを待たずにズーム中も追従させる。 */
   private prefSizers: ((zoom: number) => void)[] = [];
+  /** 重なりを避けるために、県の丸の位置と今の大きさを持っておく。 */
+  private prefLayout: { marker: Marker; anchor: LatLon; size: () => number }[] = [];
 
   constructor(container: HTMLElement, center: LatLon, cb: EventMapCallbacks) {
     this.cb = cb;
@@ -110,6 +122,8 @@ export class EventMap {
       dragRotate: false,
     });
     this.map.touchZoomRotate.disableRotation();
+    // 開発中だけ、画面確認のスクリプトから地図を動かせるようにしておく
+    if (import.meta.env.DEV) (window as unknown as { __map: maplibregl.Map }).__map = this.map;
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
@@ -120,10 +134,11 @@ export class EventMap {
     // 1回の操作で moveend と zoomend の両方が飛んでくるので、次のフレームまでまとめる
     this.map.on('moveend', () => this.scheduleRender());
     this.map.on('zoomend', () => this.scheduleRender());
-    // 引いていく途中で丸が県からはみ出さないよう、ズーム中は大きさだけ毎フレーム直す
+    // ズームの途中でも丸の大きさと重なりよけを毎フレーム直す
     this.map.on('zoom', () => {
       const zoom = this.map.getZoom();
       for (const apply of this.prefSizers) apply(zoom);
+      if (this.prefLayout.length > 0) this.layoutPrefs();
     });
   }
 
@@ -211,6 +226,49 @@ export class EventMap {
     for (const m of this.markers) m.remove();
     this.markers = [];
     this.prefSizers = [];
+    this.prefLayout = [];
+  }
+
+  /**
+   * 県の丸が重なったら押し離す。大きい丸（件数の多い県）ほど動かさない。
+   * 47個しかないので総当たりで足りる。ズーム中も毎フレーム呼ぶ。
+   */
+  private layoutPrefs(): void {
+    const items = this.prefLayout.map((it) => {
+      const p = this.map.project([it.anchor.lon, it.anchor.lat]);
+      return { it, x0: p.x, y0: p.y, x: p.x, y: p.y, r: it.size() / 2 + PREF_GAP_PX / 2 };
+    });
+
+    for (let iter = 0; iter < 40; iter += 1) {
+      let moved = false;
+      for (let i = 0; i < items.length; i += 1) {
+        for (let j = i + 1; j < items.length; j += 1) {
+          const a = items[i];
+          const b = items[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let d = Math.hypot(dx, dy);
+          const min = a.r + b.r;
+          if (d >= min) continue;
+          if (d < 0.01) {
+            // 同じ位置なら、ずらす向きを決められないので横に逃がす
+            dx = 1;
+            dy = 0;
+            d = 1;
+          }
+          const push = min - d;
+          const wa = b.r / (a.r + b.r);
+          a.x -= (dx / d) * push * wa;
+          a.y -= (dy / d) * push * wa;
+          b.x += (dx / d) * push * (1 - wa);
+          b.y += (dy / d) * push * (1 - wa);
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+
+    for (const p of items) p.it.marker.setOffset([p.x - p.x0, p.y - p.y0]);
   }
 
   /**
@@ -275,19 +333,21 @@ export class EventMap {
     // 件数の多い県から置く。上限に当たっても主要な県は残る
     const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
     for (const [name, group] of sorted.slice(0, MAX_MARKERS)) this.addPrefCircle(name, group);
+    this.layoutPrefs();
   }
 
   private addPrefCircle(name: string, group: Projected[]): void {
     const n = group.length;
     const events = group.map((it) => it.ev);
     /*
-     * 丸は地図上の**その県の位置**（src/pref-centers.ts）に置く。
+     * 丸は地図上の**その県の真ん中**（src/pref-centers.ts）に置く。
      * 以前は「県内イベントの重心にいちばん近いイベント」に置いていたが、
      * イベントが県境や県庁所在地に偏っていると、丸が隣の県の上に乗って見えた。
+     * 県庁所在地に置く案も試したが、関東・関西で丸が重なり合って読めなかった。
      * 表に無い名前（「その他」）だけ従来どおりイベントの上に置く。
      */
     const center = PREF_CENTERS[name];
-    const anchor: LatLon = center ?? nearestToCentroid(group).ev;
+    const anchor: LatLon = ANCHOR_OVERRIDES[name] ?? center ?? nearestToCentroid(group).ev;
     const meta = CATEGORY_META[topCategory(events)] ?? CATEGORY_META.other;
 
     const el = document.createElement('button');
@@ -314,6 +374,7 @@ export class EventMap {
      */
     const wanted = Math.min(PREF_MIN_PX + Math.log2(n) * 5, PREF_MAX_PX);
     const labelWidth = name.length * 11 + 12;
+    let current = wanted;
     const applySize = (zoom: number) => {
       let size = wanted;
       let showName = true;
@@ -323,6 +384,7 @@ export class EventMap {
         // 名前は丸の下に出るので、丸の半径＋名前の高さと、名前の幅の半分が県の中に収まるか
         showName = radius >= size / 2 + 3 + PREF_NAME_PX && radius >= labelWidth / 2;
       }
+      current = size;
       el.style.setProperty('--pref-size', `${size}px`);
       el.style.setProperty('--pref-font', `${Math.max(Math.round(size * 0.42), 9)}px`);
       count.hidden = size < PREF_NUMBER_MIN_PX;
@@ -343,11 +405,11 @@ export class EventMap {
       );
     });
 
-    this.markers.push(
-      new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([anchor.lon, anchor.lat])
-        .addTo(this.map),
-    );
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([anchor.lon, anchor.lat])
+      .addTo(this.map);
+    this.markers.push(marker);
+    this.prefLayout.push({ marker, anchor, size: () => current });
   }
 
   // ---- 寄ったとき: 1件ずつのピン ----
