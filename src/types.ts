@@ -1,13 +1,17 @@
-/** イベントの大分類。地図上の色分けとフィルタに使う。 */
+/**
+ * イベントの大分類。地図上の色分けとフィルタに使う。判定は src/classify.ts。
+ * 「休みの日に何をするか」を決めるためのアプリなので、上の6つ（グルメ〜アート）には
+ * 多くの人が行きたくなる催しだけを入れ、教室・講座や小さな集まりは下に回す。
+ */
 export type EventCategory =
-  | 'food' // 食フェス・グルメイベント
-  | 'music' // 音楽フェス・ライブ
+  | 'food' // 肉フェス・ラーメン祭りなど、食べ物が主役の催し
+  | 'entertainment' // 体験型の展示・謎解き・キャラクターもの・舞台
   | 'festival' // 祭り・花火・伝統行事
-  | 'entertainment' // 体験型の展示・謎解き・キャラクターもの・舞台（src/classify.ts で判定）
-  | 'art' // 展覧会・アート・映画
-  | 'sports' // スポーツ・マラソン
+  | 'leisure' // 動物園・遊園地・味覚狩り・紅葉・スポーツ観戦など、出かけて遊ぶもの
+  | 'music' // ライブ・コンサート・音楽フェス
+  | 'art' // 展覧会・美術館・写真展
   | 'market' // マルシェ・フリマ・物産展
-  | 'tech' // 勉強会・カンファレンス
+  | 'tech' // 教室・講座・勉強会（「オカリナ教室」「ピラティス教室」もここ）
   | 'other';
 
 /**
@@ -75,14 +79,15 @@ export interface EventBundle {
 }
 
 export const CATEGORY_META: Record<EventCategory, { label: string; color: string; emoji: string }> = {
+  // 並び順がそのままチップの順。力を入れたい順に並べている
   food: { label: 'グルメ', color: '#ef6c3a', emoji: '🍜' },
   entertainment: { label: 'エンタメ', color: '#db2777', emoji: '🎭' },
-  music: { label: '音楽', color: '#8b5cf6', emoji: '🎵' },
   festival: { label: '祭り・花火', color: '#e11d48', emoji: '🎆' },
+  leisure: { label: 'レジャー', color: '#16a34a', emoji: '🎡' },
+  music: { label: '音楽', color: '#8b5cf6', emoji: '🎵' },
   art: { label: 'アート', color: '#0ea5e9', emoji: '🎨' },
-  sports: { label: 'スポーツ', color: '#16a34a', emoji: '🏃' },
   market: { label: 'マルシェ', color: '#d97706', emoji: '🧺' },
-  tech: { label: '勉強会', color: '#475569', emoji: '💻' },
+  tech: { label: '教室・講座', color: '#475569', emoji: '📚' },
   other: { label: 'その他', color: '#64748b', emoji: '📍' },
 };
 
