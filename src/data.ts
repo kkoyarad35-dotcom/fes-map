@@ -1,3 +1,4 @@
+import { reclassify } from './classify';
 import { assignPrefectures } from './pref';
 import { askPassword, forgetKey, openSealed, parseSealed, recallKey } from './sealed';
 import type { EventBundle, EventItem } from './types';
@@ -22,6 +23,7 @@ export async function loadBundle(): Promise<EventBundle> {
   try {
     const bundle = ((await loadSealed()) ?? (await loadPlain())) as EventBundle;
     const events = sanitize(bundle.events ?? []);
+    reclassify(events);
     // 地図を引いたときの集計に使う都道府県は、ここで一度だけ割り当てる
     assignPrefectures(events);
     return { ...EMPTY_BUNDLE, ...bundle, events };

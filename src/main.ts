@@ -15,6 +15,7 @@ import { CategoryChips } from './ui/chips';
 import { DateStrip } from './ui/dateStrip';
 import { PEEK_PX, Sheet } from './ui/sheet';
 import { creditBlock, detailView, emptyState, eventCard } from './ui/views';
+import { setupUpdateButton } from './update';
 import type { EventBundle, EventCategory, EventItem } from './types';
 
 /** 何日先まで見られるようにするか。「1ヶ月先まで」の要件をこれで満たす。 */
@@ -383,6 +384,8 @@ async function boot(): Promise<void> {
     }
     refresh();
   });
+
+  setupUpdateButton($<HTMLButtonElement>('update'));
 
   refresh();
   strip.select(state.day, true);

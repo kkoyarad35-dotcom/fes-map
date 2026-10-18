@@ -3,6 +3,7 @@ export type EventCategory =
   | 'food' // 食フェス・グルメイベント
   | 'music' // 音楽フェス・ライブ
   | 'festival' // 祭り・花火・伝統行事
+  | 'entertainment' // 体験型の展示・謎解き・キャラクターもの・舞台（src/classify.ts で判定）
   | 'art' // 展覧会・アート・映画
   | 'sports' // スポーツ・マラソン
   | 'market' // マルシェ・フリマ・物産展
@@ -70,6 +71,7 @@ export interface EventBundle {
 
 export const CATEGORY_META: Record<EventCategory, { label: string; color: string; emoji: string }> = {
   food: { label: 'グルメ', color: '#ef6c3a', emoji: '🍜' },
+  entertainment: { label: 'エンタメ', color: '#db2777', emoji: '🎭' },
   music: { label: '音楽', color: '#8b5cf6', emoji: '🎵' },
   festival: { label: '祭り・花火', color: '#e11d48', emoji: '🎆' },
   art: { label: 'アート', color: '#0ea5e9', emoji: '🎨' },

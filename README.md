@@ -291,7 +291,9 @@ import して並べれば、UI側は何も変えずに反映される。
 }
 ```
 
-- `category`: `food` / `music` / `festival` / `art` / `sports` / `market` / `tech` / `other`
+- `category`: `food` / `music` / `festival` / `entertainment` / `art` / `sports` / `market` / `tech` / `other`
+  - `food` と `entertainment` は、読み込み時に `src/classify.ts` がタイトルから判定し直す。
+    グルメは「肉フェス」「餃子祭」のように食べ物が主役の催しだけ（ビアガーデン・ビュッフェ・食の展示は外す）。
   （省略するとタイトルから推定する）
 - `lat` / `lon`: 省略可。無ければ `address` からジオコーディングする
 - `startTime` を省略すると「終日」扱いになる
