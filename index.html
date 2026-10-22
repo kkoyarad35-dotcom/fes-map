@@ -14,7 +14,8 @@
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <meta name="description" content="現在地の近くで今日から1ヶ月先までに開催されるフェス・イベントを地図で探せます。" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- ホーム画面から開いたとき、時計や電池の帯の裏まで地図を敷く（default だと白い帯になる） -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>ちかフェス — 近くのフェスとイベントを地図で探す</title>
   </head>
@@ -24,7 +25,7 @@
 
       <header class="topbar">
         <div class="topbar__row">
-          <div class="brand"><span class="brand__mark">🎪</span>ちかフェス</div>
+          <div class="brand" title="ちかフェス" aria-label="ちかフェス"><span class="brand__mark">🎪</span></div>
           <div class="search">
             <span class="search__icon" aria-hidden="true">🔍</span>
             <input
@@ -45,8 +46,8 @@
             </svg>
           </button>
         </div>
+        <!-- 先頭に「だれと」のプルダウン（sceneChips.ts）、続けてカテゴリのチップ -->
         <div class="chips" id="chips" role="group" aria-label="カテゴリで絞り込む"></div>
-        <div class="chips chips--scenes" id="scenes" role="group" aria-label="誰と行くかでおすすめを見る"></div>
       </header>
 
       <nav class="datestrip" id="datestrip" aria-label="開催日を選ぶ"></nav>

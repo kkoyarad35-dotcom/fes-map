@@ -11,8 +11,8 @@
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.12), 0 12px 32px rgba(16, 24, 40, 0.14);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* 検索バー + カテゴリのチップ + おすすめ（シーン）のチップ */
-  --topbar-h: 144px;
+  /* 検索バー + カテゴリのチップ（先頭に「だれと」） */
+  --topbar-h: 90px;
   color-scheme: light;
 }
 
@@ -72,6 +72,22 @@ button {
   inset: 0;
 }
 
+/*
+ * ステータスバー（時計・電池）の裏にも地図を敷いている（index.html の black-translucent）。
+ * 白い文字が明るい地図に埋もれないよう、その高さだけうっすら暗くする。
+ */
+#app::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 21;
+  height: var(--safe-top);
+  background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.1));
+  pointer-events: none;
+}
+
 /* ---------- 上部バー ---------- */
 
 /*
@@ -85,7 +101,7 @@ button {
   left: 0;
   right: 0;
   z-index: 20;
-  padding: calc(var(--safe-top) + 10px) 12px 8px;
+  padding: calc(var(--safe-top) + 8px) 10px 4px;
   pointer-events: none;
 }
 
@@ -96,9 +112,9 @@ button {
 .topbar__row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border-radius: 18px;
+  gap: 7px;
+  padding: 4px 5px;
+  border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   backdrop-filter: blur(16px) saturate(1.3);
@@ -120,9 +136,9 @@ button {
 .brand__mark {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), #f3a63c);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 38%, transparent);
   font-size: 16px;
@@ -147,7 +163,7 @@ button {
 /* ガラスのカードの中なので、影と枠は持たせず一段くぼませるだけにする */
 .search input {
   width: 100%;
-  height: 36px;
+  height: 32px;
   padding: 0 12px 0 32px;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -172,8 +188,8 @@ button {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   background: color-mix(in srgb, var(--surface-2) 75%, transparent);
@@ -210,8 +226,8 @@ button {
 
 .chips {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 5px;
+  margin-top: 6px;
   overflow-x: auto;
   scrollbar-width: none;
   padding-bottom: 2px;
@@ -226,8 +242,8 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 30px;
-  padding: 0 11px;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 82%, transparent);
@@ -254,26 +270,35 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* シーンの段はカテゴリの段より一回り控えめにして、2段が同じ重さに見えないようにする */
-.chips--scenes {
-  margin-top: 6px;
-  align-items: center;
+/* 「だれと」のプルダウン。見た目はチップに揃え、右端に ▾ を描く */
+select.chip--scene {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  /* select は一番長い選択肢の幅になるので、選んでいる文字の幅に合わせる（未対応のブラウザは上限で切る） */
+  field-sizing: content;
+  max-width: 150px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 11px center, right 7px center;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
 }
 
-.chips--scenes .chip {
-  height: 28px;
-  font-size: 12px;
+/* .chip[aria-pressed] の background 一括指定で ▾ が消えるので、選択中も描き直す */
+select.chip--scene[aria-pressed='true'] {
+  background: linear-gradient(45deg, transparent 50%, currentColor 50%) right 11px center / 4px 4px
+      no-repeat,
+    linear-gradient(135deg, currentColor 50%, transparent 50%) right 7px center / 4px 4px no-repeat,
+    var(--chip-color, var(--accent));
 }
 
-.chips__head {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  color: var(--text-dim);
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+select.chip--scene option {
+  color: var(--text);
+  background: var(--surface);
 }
 
 /* 地図を動かしたあとに出る「このエリアで検索」。Google マップの同名ボタンにならう */
@@ -281,7 +306,7 @@ button {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(var(--topbar-h) + 88px);
+  top: calc(var(--topbar-h) + 72px);
   z-index: 18;
   height: 36px;
   padding: 0 16px;
@@ -350,8 +375,8 @@ button {
   right: 0;
   z-index: 19;
   display: flex;
-  gap: 6px;
-  padding: 4px 12px 10px;
+  gap: 5px;
+  padding: 2px 10px 6px;
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
@@ -365,19 +390,23 @@ button {
 .day {
   flex-shrink: 0;
   scroll-snap-align: center;
-  width: 52px;
-  padding: 6px 0 5px;
+  height: 28px;
+  padding: 0 9px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  border-radius: 14px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 84%, transparent);
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow-sm);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 1px;
-  line-height: 1.15;
-  transition: transform 0.12s, background 0.12s, border-color 0.12s;
+  gap: 4px;
+  line-height: 1;
+  transition: transform 0.12s, background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+
+/* イベントの無い日は薄くする（以前は点で示していた） */
+.day:not(.day--has) {
+  opacity: 0.55;
 }
 
 .day:active {
@@ -399,21 +428,9 @@ button {
 }
 
 .day__num {
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-}
-
-.day__dot {
-  height: 4px;
-  width: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0;
-}
-
-.day--has .day__dot {
-  opacity: 1;
 }
 
 .day[aria-pressed='true'] {
@@ -423,13 +440,13 @@ button {
   box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
+.day[aria-pressed='true'] {
+  opacity: 1;
+}
+
 .day[aria-pressed='true'] .day__dow,
 .day[aria-pressed='true'] .day__num {
   color: var(--accent-ink);
-}
-
-.day[aria-pressed='true'] .day__dot {
-  background: var(--accent-ink);
 }
 
 /* ---------- 地図上のピン ---------- */
@@ -646,7 +663,7 @@ button {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(var(--topbar-h) + 50px);
+  top: calc(var(--topbar-h) + 38px);
   z-index: 18;
   max-width: calc(100% - 32px);
   padding: 6px 13px;
@@ -671,7 +688,8 @@ button {
   right: 0;
   bottom: 0;
   z-index: 25;
-  height: 88%;
+  /* 一番上まで上げると画面いっぱいになる。上端はノッチ等に掛からないよう safe-area 分を空ける */
+  height: 100%;
   transform: translateY(var(--sheet-offset, 60%));
   display: flex;
   flex-direction: column;
@@ -680,19 +698,28 @@ button {
   /* 暗いテーマだと地図との境目が消えるので、上辺に1本だけ線を入れる */
   border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   box-shadow: var(--shadow-md);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.28s, padding 0.28s;
   will-change: transform;
+}
+
+/* ステータスバーの文字は白なので、その裏だけテーマ色の帯にして読めるようにする */
+.sheet.is-full {
+  border-radius: 0;
+  padding-top: var(--safe-top);
+  background: linear-gradient(var(--accent) 0 var(--safe-top), var(--surface) var(--safe-top));
 }
 
 .sheet.is-dragging {
   transition: none;
 }
 
+/* つまみ。指で掴みやすいよう、線より広い範囲をタップ・ドラッグできるようにしてある */
 .sheet__grip {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  height: 22px;
+  width: 100%;
+  height: 30px;
   border: 0;
   background: none;
   padding: 0;
@@ -706,9 +733,12 @@ button {
   background: var(--line);
 }
 
+/* 見出しの行も、つまみと同じくタップで高さを切り替えられる（sheet.ts） */
 .sheet__head {
   flex-shrink: 0;
   padding: 0 16px 8px;
+  touch-action: none;
+  cursor: pointer;
 }
 
 .sheet__body {
@@ -774,36 +804,70 @@ button {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 13px;
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
   overflow: hidden;
   background: color-mix(in srgb, var(--cat-color) 15%, transparent);
+  /* 写真の端が白に溶けないよう、うっすら枠を置く */
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08);
 }
 
 .card__emoji {
-  font-size: 22px;
+  font-size: 30px;
   opacity: 0.85;
 }
 
+/* 写真は全体が見える大きさで置き、余白は同じ写真のぼかしで埋める（views.ts） */
 .card__img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+}
+
+.card__img--backdrop {
   object-fit: cover;
-  /* 写真の下端が白に溶けないよう、内側にうっすら枠を置く */
-  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08);
+  filter: blur(12px) saturate(1.2);
+  transform: scale(1.25);
+  opacity: 0.85;
+}
+
+.card__cat {
+  display: inline-block;
+  margin-bottom: 2px;
+  color: var(--cat-color);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.card__desc {
+  display: -webkit-box;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .card__main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.card__main > * {
+  max-width: 100%;
 }
 
 .card__title {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   line-height: 1.38;
   letter-spacing: 0.01em;
   display: -webkit-box;
@@ -813,26 +877,26 @@ button {
 }
 
 .card__meta {
-  margin-top: 3px;
+  margin-top: 4px;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
-  font-size: 11.5px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .card__time {
+  flex-shrink: 0;
   font-weight: 700;
-  color: var(--cat-color);
   font-variant-numeric: tabular-nums;
 }
 
 .card__venue {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
 }
 
 .card__dist {
@@ -1246,6 +1310,11 @@ button {
     width: 380px;
     height: calc(100% - 24px - var(--topbar-h) - 44px);
     border-radius: 16px;
+  }
+  /* 横長の画面ではシートは右の枠のままなので、画面いっぱい用の見た目は使わない */
+  .sheet.is-full {
+    border-radius: 16px;
+    padding-top: 0;
   }
   .fab {
     right: 408px;

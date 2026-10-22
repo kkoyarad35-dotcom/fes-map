@@ -98,7 +98,7 @@ async function boot(): Promise<void> {
     state.listLimit = LIST_PAGE_SIZE;
     refresh();
   });
-  const scenes = new SceneChips($('scenes'), (scene) => {
+  const scenes = new SceneChips($('chips'), (scene) => {
     state.scene = scene;
     state.selected = null;
     state.mode = 'list';

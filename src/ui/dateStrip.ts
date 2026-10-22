@@ -43,10 +43,8 @@ export class DateStrip {
       num.className = 'day__num';
       num.textContent = shortLabel(key);
 
-      const dot = document.createElement('span');
-      dot.className = 'day__dot';
-
-      btn.append(dow, num, dot);
+      // 曜日と日付は横に並べて1行にする（上部を薄くするため）
+      btn.append(dow, num);
       btn.addEventListener('click', () => {
         this.select(key);
         opts.onSelect(key);

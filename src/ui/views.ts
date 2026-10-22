@@ -42,6 +42,13 @@ function row(dt: string, dd: string | Node): HTMLDivElement {
   return el;
 }
 
+/** 一覧に出す紹介文。説明文の空白を詰めただけのもの（行数は CSS で切る）。 */
+function summaryOf(ev: EventItem): string | null {
+  const text = ev.description?.replace(/\s+/g, ' ').trim();
+  if (!text || text === ev.title) return null;
+  return text.length > 140 ? `${text.slice(0, 140)}…` : text;
+}
+
 /** 一覧の1件分。距離が分かるときは右端に出す。 */
 export function eventCard(
   ev: EventItem,
@@ -70,57 +77,67 @@ export function eventCard(
   thumb.appendChild(emoji);
 
   if (ev.imageUrl) {
-    const img = document.createElement('img');
-    img.className = 'card__img';
-    img.src = ev.imageUrl;
-    img.alt = '';
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    // 共有URLを画像の配信元に渡さない（配信ヘッダ側でも no-referrer にしてある）
-    img.referrerPolicy = 'no-referrer';
-    img.addEventListener('error', () => img.remove());
-    thumb.appendChild(img);
+    /*
+     * 写真は縦長・横長・ロゴ入りのチラシとまちまちなので、切り抜くと肝心な所が見切れる。
+     * 同じ写真をぼかして下に敷き、その上に全体が収まる大きさ（contain）で重ねる。
+     */
+    const make = (className: string): HTMLImageElement => {
+      const img = document.createElement('img');
+      img.className = className;
+      img.src = ev.imageUrl!;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      // 共有URLを画像の配信元に渡さない（配信ヘッダ側でも no-referrer にしてある）
+      img.referrerPolicy = 'no-referrer';
+      return img;
+    };
+    const backdrop = make('card__img card__img--backdrop');
+    const img = make('card__img');
+    img.addEventListener('error', () => {
+      img.remove();
+      backdrop.remove();
+    });
+    thumb.append(backdrop, img);
   }
 
   const main = document.createElement('span');
   main.className = 'card__main';
 
+  // 何のイベントかを先に見せる。期間よりカテゴリと中身の紹介を優先する
+  const cat = document.createElement('span');
+  cat.className = 'card__cat';
+  cat.textContent = `${meta.emoji} ${meta.label}`;
+
   const title = document.createElement('span');
   title.className = 'card__title';
   title.textContent = ev.title;
 
-  const metaRow = document.createElement('span');
-  metaRow.className = 'card__meta';
+  main.append(cat, title);
 
-  const time = document.createElement('span');
-  time.className = 'card__time';
-  time.textContent = timeLabelFor(ev, dayKey);
-  metaRow.appendChild(time);
-
-  if (isMultiDay(ev)) {
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = periodLabel(ev);
-    metaRow.appendChild(tag);
+  const summary = summaryOf(ev);
+  if (summary) {
+    const desc = document.createElement('span');
+    desc.className = 'card__desc';
+    desc.textContent = summary;
+    main.appendChild(desc);
   }
 
+  // 日時と場所は1行に控えめに。期間の詳しい表示は詳細画面に任せる
+  const metaRow = document.createElement('span');
+  metaRow.className = 'card__meta';
+  const time = document.createElement('span');
+  time.className = 'card__time';
+  time.textContent = isMultiDay(ev) ? `${periodLabel(ev)}` : timeLabelFor(ev, dayKey);
+  metaRow.appendChild(time);
   if (ev.venue || ev.address) {
     const venue = document.createElement('span');
     venue.className = 'card__venue';
-    venue.textContent = ev.venue || ev.address || '';
+    venue.textContent = `📍 ${ev.venue || ev.address || ''}`;
     metaRow.appendChild(venue);
   }
+  main.appendChild(metaRow);
 
-  // 公式サイトを持っているかは一覧の時点で分かったほうが選びやすい
-  const host = ev.url ? hostLabel(ev.url) : null;
-  if (host) {
-    const tag = document.createElement('span');
-    tag.className = 'tag tag--link';
-    tag.textContent = `🔗 ${host}`;
-    metaRow.appendChild(tag);
-  }
-
-  main.append(title, metaRow);
   card.append(thumb, main);
 
   if (origin) {

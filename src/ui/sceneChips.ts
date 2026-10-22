@@ -1,62 +1,58 @@
 import { ALL_SCENES, SCENE_META, type Scene } from '../scenes';
 
+const NONE = '';
+
 /**
- * 「デート」「友達と」などのシーンのチップ。カテゴリのチップとは独立していて、
- * 選べるのは1つだけ（もう一度押すと外れる）。
+ * 「デート」「友達と」などのシーンの選択。カテゴリのチップとは独立していて、
+ * 選べるのは1つだけ。上部を1段減らすため、チップを並べずにカテゴリの段の先頭に
+ * 小さなプルダウンを1つ置く（スマホでは OS の選択画面が出る）。
  */
 export class SceneChips {
-  private buttons = new Map<Scene, HTMLButtonElement>();
-  private counts = new Map<Scene, HTMLSpanElement>();
-  private selected: Scene | null = null;
+  private select: HTMLSelectElement;
+  private options = new Map<Scene, HTMLOptionElement>();
 
   constructor(root: HTMLElement, onChange: (scene: Scene | null) => void) {
-    const head = document.createElement('span');
-    head.className = 'chips__head';
-    head.textContent = 'おすすめ';
-    root.appendChild(head);
+    this.select = document.createElement('select');
+    this.select.className = 'chip chip--scene';
+    this.select.setAttribute('aria-label', '誰と行くかでおすすめを見る');
+
+    const none = document.createElement('option');
+    none.value = NONE;
+    none.textContent = '👥 だれと';
+    this.select.appendChild(none);
 
     for (const scene of ALL_SCENES) {
-      const meta = SCENE_META[scene];
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'chip chip--scene';
-      btn.style.setProperty('--chip-color', meta.color);
-      btn.setAttribute('aria-pressed', 'false');
-
-      const text = document.createElement('span');
-      text.textContent = `${meta.emoji} ${meta.label}`;
-      const count = document.createElement('span');
-      count.className = 'chip__count';
-      btn.append(text, count);
-
-      btn.addEventListener('click', () => {
-        this.selected = this.selected === scene ? null : scene;
-        this.sync();
-        onChange(this.selected);
-      });
-
-      this.buttons.set(scene, btn);
-      this.counts.set(scene, count);
-      root.appendChild(btn);
+      const opt = document.createElement('option');
+      opt.value = scene;
+      this.options.set(scene, opt);
+      this.select.appendChild(opt);
     }
+    this.setCounts(new Map());
+
+    this.select.addEventListener('change', () => {
+      this.sync();
+      onChange((this.select.value || null) as Scene | null);
+    });
+    root.prepend(this.select);
   }
 
   private sync(): void {
-    for (const [scene, btn] of this.buttons) {
-      btn.setAttribute('aria-pressed', String(scene === this.selected));
-    }
+    const scene = (this.select.value || null) as Scene | null;
+    this.select.setAttribute('aria-pressed', String(scene !== null));
+    this.select.style.setProperty('--chip-color', scene ? SCENE_META[scene].color : '');
   }
 
   /** 一覧側の「×」から外したときなど、外から選択を変える。onChange は呼ばない。 */
   set(scene: Scene | null): void {
-    this.selected = scene;
+    this.select.value = scene ?? NONE;
     this.sync();
   }
 
   setCounts(byScene: Map<Scene, number>): void {
     for (const scene of ALL_SCENES) {
+      const meta = SCENE_META[scene];
       const n = byScene.get(scene) ?? 0;
-      this.counts.get(scene)!.textContent = n > 0 ? String(n) : '';
+      this.options.get(scene)!.textContent = `${meta.emoji} ${meta.label}${n > 0 ? `（${n}）` : ''}`;
     }
   }
 }

@@ -22,17 +22,24 @@ export class Sheet {
     this.head = head;
     this.body = body;
 
-    grip.addEventListener('pointerdown', (e) => this.onDown(e, grip));
-    grip.addEventListener('pointermove', (e) => this.onMove(e));
-    grip.addEventListener('pointerup', (e) => this.onUp(e, grip));
-    grip.addEventListener('pointercancel', (e) => this.onUp(e, grip));
+    // つまみの線だけだと指で狙いにくいので、見出しの行（件数など）でも同じ操作を受ける。
+    // 見出しの中のボタン（絞り込みの×など）は押せるまま残す
+    for (const handle of [grip, head]) {
+      handle.addEventListener('pointerdown', (e) => {
+        if (handle !== grip && (e.target as Element).closest('button, a, input, select')) return;
+        this.onDown(e, handle);
+      });
+      handle.addEventListener('pointermove', (e) => this.onMove(e));
+      handle.addEventListener('pointerup', (e) => this.onUp(e, handle));
+      handle.addEventListener('pointercancel', (e) => this.onUp(e, handle));
+    }
 
     window.addEventListener('resize', () => this.apply());
     this.apply();
   }
 
   private get height(): number {
-    return this.root.offsetHeight || window.innerHeight * 0.88;
+    return this.root.offsetHeight || window.innerHeight;
   }
 
   private offsetFor(snap: SheetSnap): number {
@@ -71,6 +78,8 @@ export class Sheet {
   private apply(): void {
     const offset = this.offsetFor(this.snap);
     this.root.style.setProperty('--sheet-offset', `${offset}px`);
+    // 画面いっぱいのときは角丸をやめ、上端をステータスバーの下から始める
+    this.root.classList.toggle('is-full', this.snap === 'full');
     // 地図側のUI（現在地ボタン・帰属表示）を、シートに隠れない位置へ追従させる
     const visible = this.height - offset;
     document.documentElement.style.setProperty(
