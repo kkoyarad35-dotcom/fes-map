@@ -132,16 +132,13 @@ button {
   flex-shrink: 0;
 }
 
-/* ロゴは四角いタイルにする。絵文字を裸で置くより輪郭が出る */
+/* ロゴは public/icon.svg（ホーム画面のアイコンと同じ絵）を丸く切って使う */
 .brand__mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #f3a63c);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 38%, transparent);
-  font-size: 16px;
 }
 
 .search {
@@ -534,7 +531,7 @@ select.chip--scene option {
   border-radius: 50%;
   border: clamp(1px, calc(var(--pref-size, 40px) * 0.08), 2px) solid var(--surface);
   background: var(--pin-color);
-  color: #fff;
+  color: var(--pref-ink, #fff);
   box-shadow: var(--shadow-sm);
   /* ピンと同じ理由で transform は使わない（MapLibre に上書きされる） */
   transition: filter 0.12s;
@@ -1153,14 +1150,11 @@ select.chip--scene option {
 }
 
 .boot__mark {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--accent), #f3a63c);
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
   box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 40%, transparent);
-  font-size: 32px;
   animation: boot-float 2.4s ease-in-out infinite;
 }
 

@@ -17,7 +17,9 @@
     <!-- ホーム画面から開いたとき、時計や電池の帯の裏まで地図を敷く（default だと白い帯になる） -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <title>ちかフェス — 近くのフェスとイベントを地図で探す</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <title>ナニスル — 休みの日にナニする？近くのイベントを地図で探す</title>
   </head>
   <body>
     <div id="app">
@@ -25,7 +27,7 @@
 
       <header class="topbar">
         <div class="topbar__row">
-          <div class="brand" title="ちかフェス" aria-label="ちかフェス"><span class="brand__mark">🎪</span></div>
+          <div class="brand" title="ナニスル"><img class="brand__mark" src="./icon.svg" alt="ナニスル" /></div>
           <div class="search">
             <span class="search__icon" aria-hidden="true">🔍</span>
             <input
@@ -76,9 +78,9 @@
 
       <!-- 地図が出た時点で外す。イベント一覧の読み込みはシート側で知らせる -->
       <div class="boot" id="boot">
-        <div class="boot__mark">🎪</div>
-        <p class="boot__name">ちかフェス</p>
-        <p class="boot__note">近くのフェスとイベントを地図で探す</p>
+        <img class="boot__mark" src="./icon.svg" alt="" />
+        <p class="boot__name">ナニスル</p>
+        <p class="boot__note">休みの日にナニする？近くのイベントを地図で探す</p>
         <div class="boot__bar"><span></span></div>
       </div>
     </div>

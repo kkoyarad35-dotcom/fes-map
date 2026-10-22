@@ -88,8 +88,8 @@ export function askPassword(sealed: Sealed): Promise<unknown> {
     root.className = 'lock';
     root.innerHTML = `
       <form class="lock__card" autocomplete="on">
-        <div class="boot__mark" aria-hidden="true">🎪</div>
-        <p class="boot__name">ちかフェス</p>
+        <img class="boot__mark" src="./icon.svg" alt="" />
+        <p class="boot__name">ナニスル</p>
         <label class="lock__label" for="lock-pass">パスワードを入れてください</label>
         <input id="lock-pass" class="lock__input" type="password" name="password"
           autocomplete="current-password" required />

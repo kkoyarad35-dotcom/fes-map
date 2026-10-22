@@ -4,7 +4,7 @@ import maplibregl, {
   type LngLatLike,
   type StyleSpecification,
 } from 'maplibre-gl';
-import { CATEGORY_META, type EventCategory, type EventItem } from './types';
+import { CATEGORY_META, type EventItem } from './types';
 import type { LatLon } from './geo';
 
 import { PREF_CENTERS } from './pref-centers';
@@ -443,10 +443,10 @@ export class EventMap {
      */
     const center = PREF_CENTERS[name];
     const anchor: LatLon = ANCHOR_OVERRIDES[name] ?? center ?? nearestToCentroid(group).ev;
-    const meta = CATEGORY_META[topCategory(events)] ?? CATEGORY_META.other;
+    const heat = prefHeat(n);
 
     // 件数と色が同じなら前回の丸をそのまま使う（「その他」は位置がイベント次第なので含める）
-    const key = `pref|${name}|${n}|${meta.color}|${anchor.lat},${anchor.lon}`;
+    const key = `pref|${name}|${n}|${heat.bg}|${anchor.lat},${anchor.lon}`;
     const reused = this.reuseMarker(key);
     if (reused) {
       reused.sizer?.(this.map.getZoom());
@@ -456,7 +456,8 @@ export class EventMap {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'pref';
-    el.style.setProperty('--pin-color', meta.color);
+    el.style.setProperty('--pin-color', heat.bg);
+    el.style.setProperty('--pref-ink', heat.ink);
     el.setAttribute('aria-label', `${name} ${n}件。押すと1件ずつ表示されるところまで拡大します`);
 
     const count = document.createElement('span');
@@ -648,18 +649,20 @@ function nearestToCentroid(items: Projected[]): Projected {
   return best;
 }
 
-/** いちばん多いカテゴリ。丸の色に使う。 */
-function topCategory(events: EventItem[]): EventCategory {
-  const counts = new Map<EventCategory, number>();
-  for (const e of events) counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
+/*
+ * 県の丸の色は件数で決める。少ない県は淡い杏色、多い県ほど濃い赤に寄せる。
+ * 以前は「県内でいちばん多いカテゴリの色」だったが、県ごとに色がばらばらで
+ * 意味が読み取れなかった。1日あたり全国で千数百件、1県平均30件ほどを目安に段を切る。
+ * 淡い段は白い数字だと読めないので、文字色も一緒に返す。
+ */
+const PREF_HEAT: { max: number; bg: string; ink: string }[] = [
+  { max: 9, bg: '#fdd9b5', ink: '#8a3b12' },
+  { max: 29, bg: '#fbb26e', ink: '#6b2a08' },
+  { max: 59, bg: '#f5853f', ink: '#ffffff' },
+  { max: 119, bg: '#e45a2b', ink: '#ffffff' },
+  { max: Infinity, bg: '#b8321f', ink: '#ffffff' },
+];
 
-  let top: EventCategory = 'other';
-  let max = -1;
-  for (const [category, n] of counts) {
-    if (n > max) {
-      max = n;
-      top = category;
-    }
-  }
-  return top;
+function prefHeat(n: number): { bg: string; ink: string } {
+  return PREF_HEAT.find((h) => n <= h.max)!;
 }
