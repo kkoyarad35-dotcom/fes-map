@@ -48,7 +48,7 @@
             </svg>
           </button>
         </div>
-        <!-- 先頭に「だれと」のプルダウン（sceneChips.ts）、続けてカテゴリのチップ -->
+        <!-- 先頭に「だれと」「天気」のプルダウン（sceneChips.ts / weatherChips.ts）、続けてカテゴリのチップ -->
         <div class="chips" id="chips" role="group" aria-label="カテゴリで絞り込む"></div>
       </header>
 
@@ -72,6 +72,8 @@
         <button class="sheet__grip" id="sheet-grip" type="button" aria-label="一覧の高さを切り替える">
           <span></span>
         </button>
+        <!-- 一覧を一番下までしまう／出す（sheet.ts） -->
+        <button class="sheet__toggle" id="sheet-toggle" type="button"></button>
         <div class="sheet__head" id="sheet-head"></div>
         <div class="sheet__body" id="sheet-body"></div>
       </section>

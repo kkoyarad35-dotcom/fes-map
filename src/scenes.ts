@@ -1,4 +1,4 @@
-import type { EventItem } from './types';
+import type { EventCategory, EventItem } from './types';
 
 /**
  * 「誰と行くか」で選ぶおすすめ。カテゴリ（グルメ・音楽…）とは別の軸。
@@ -87,6 +87,19 @@ const RULES: Record<Scene, Rule> = {
   },
 };
 
+/**
+ * カテゴリそのものがシーンに向く場合の上乗せ。classify.ts で決めたカテゴリを使う。
+ * 語だけで見ていたころは、デートを選ぶとグルメが1件も出なかった
+ * （フードフェスは恋人とも友達とも行くのに、「ワイン」「スイーツ」くらいしか拾えていなかった）。
+ * 5 = MIN_SCORE なので、そのカテゴリなら（向かない語が無いかぎり）必ず入る。
+ */
+const CATEGORY_BONUS: Record<Scene, Partial<Record<EventCategory, number>>> = {
+  date: { food: 5, nature: 3, fireworks: 5, experience: 3, stage: 2, character: 2, park: 2 },
+  friends: { food: 5, experience: 3, fireworks: 3, festival: 2, sports: 3, outdoor: 3, stage: 2 },
+  family: { park: 4, outdoor: 2, festival: 1 },
+  solo: { art: 3, stage: 1 },
+};
+
 /** おすすめ度。0 ならそのシーンには出さない。 */
 export function sceneScore(ev: EventItem, scene: Scene): number {
   const text = `${ev.title} ${ev.description ?? ''}`;
@@ -95,7 +108,7 @@ export function sceneScore(ev: EventItem, scene: Scene): number {
   // 向かない語はタイトルだけで見る。説明文の「お子様連れもOK」などで外さないため
   if (rule.minus?.test(ev.title)) return 0;
 
-  let score = 0;
+  let score = CATEGORY_BONUS[scene][ev.category] ?? 0;
   for (const [re, w] of rule.plus) {
     // タイトルに出てくる語のほうが、そのイベントの主役である可能性が高い
     if (re.test(ev.title)) score += w * 2;

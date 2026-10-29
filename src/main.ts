@@ -14,6 +14,7 @@ import { EventMap } from './map';
 import { SCENE_META, type Scene } from './scenes';
 import { CategoryChips } from './ui/chips';
 import { SceneChips } from './ui/sceneChips';
+import { WEATHER_META, WeatherChips, type Weather } from './ui/weatherChips';
 import { DateStrip } from './ui/dateStrip';
 import { Sheet } from './ui/sheet';
 import { creditBlock, detailView, emptyState, eventCard } from './ui/views';
@@ -51,6 +52,8 @@ interface State {
   categories: Set<EventCategory>;
   /** 「デート」などのおすすめ。選んでいるときは、そのシーンに向くものだけをおすすめ順に出す。 */
   scene: Scene | null;
+  /** 「晴れの日」なら屋外、「雨の日」なら屋内のものだけ。 */
+  weather: Weather | null;
   /** 「このエリアで検索」で決めた範囲。一覧をこの中のイベントだけにする。 */
   area: Area | null;
   query: string;
@@ -82,6 +85,7 @@ async function boot(): Promise<void> {
     day: '',
     categories: new Set(),
     scene: null,
+    weather: null,
     area: null,
     query: '',
     origin: null,
@@ -92,7 +96,13 @@ async function boot(): Promise<void> {
     loading: true,
   };
 
-  const sheet = new Sheet($('sheet'), $('sheet-grip'), $('sheet-head'), $('sheet-body'));
+  const sheet = new Sheet(
+    $('sheet'),
+    $('sheet-grip'),
+    $('sheet-head'),
+    $('sheet-body'),
+    $<HTMLButtonElement>('sheet-toggle'),
+  );
   const chips = new CategoryChips($('chips'), (selected) => {
     state.categories = selected;
     state.listLimit = LIST_PAGE_SIZE;
@@ -104,6 +114,13 @@ async function boot(): Promise<void> {
     state.mode = 'list';
     state.listLimit = LIST_PAGE_SIZE;
     if (scene) sheet.raiseAtLeast('half');
+    refresh();
+  });
+  const weather = new WeatherChips($('chips'), (w) => {
+    state.weather = w;
+    state.selected = null;
+    state.mode = 'list';
+    state.listLimit = LIST_PAGE_SIZE;
     refresh();
   });
   const strip = new DateStrip($('datestrip'), {
@@ -175,6 +192,9 @@ async function boot(): Promise<void> {
     return state.bundle.events.filter((ev) => {
       if (state.categories.size > 0 && !state.categories.has(ev.category)) return false;
       if (state.scene && !ev.scenes?.[state.scene]) return false;
+      // 屋内・屋外が分からないものは、どちらの天気でも残す
+      if (state.weather === 'rainy' && ev.indoor === false) return false;
+      if (state.weather === 'sunny' && ev.indoor === true) return false;
       if (q) {
         const hay = `${ev.title} ${ev.venue ?? ''} ${ev.address ?? ''} ${ev.organizer ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -301,6 +321,17 @@ async function boot(): Promise<void> {
         filterTag(`${meta.emoji} ${meta.label}`, () => {
           state.scene = null;
           scenes.set(null);
+          state.listLimit = LIST_PAGE_SIZE;
+          refresh();
+        }),
+      );
+    }
+    if (state.weather) {
+      const meta = WEATHER_META[state.weather];
+      tags.push(
+        filterTag(`${meta.emoji} ${meta.label}・${meta.note}`, () => {
+          state.weather = null;
+          weather.set(null);
           state.listLimit = LIST_PAGE_SIZE;
           refresh();
         }),

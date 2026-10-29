@@ -1,26 +1,42 @@
-export type SheetSnap = 'peek' | 'half' | 'full';
+export type SheetSnap = 'closed' | 'peek' | 'half' | 'full';
 
 /** peek 状態で画面に残す高さ。地図側の現在地ボタンの位置もこれに合わせる。 */
 export const PEEK_PX = 152;
+/** しまったときに残す高さ。つまみと「一覧」ボタンだけが見える。 */
+export const CLOSED_PX = 40;
+
+const ORDER: SheetSnap[] = ['closed', 'peek', 'half', 'full'];
 
 /**
  * 下からせり上がるシート。Google マップの下部パネルと同じ操作感を狙って、
- * 3段階のスナップ + ドラッグ + グリップのタップで切り替えられるようにしている。
+ * 4段階のスナップ + ドラッグ + グリップのタップで切り替えられるようにしている。
+ * 一番下（closed）まで下げると、地図を画面いっぱいに見られる。
  */
 export class Sheet {
   readonly head: HTMLElement;
   readonly body: HTMLElement;
   private root: HTMLElement;
+  private toggle: HTMLButtonElement;
   private snap: SheetSnap = 'peek';
   private dragStartY = 0;
   private dragStartOffset = 0;
   private dragging = false;
   onSnapChange?: (snap: SheetSnap) => void;
 
-  constructor(root: HTMLElement, grip: HTMLElement, head: HTMLElement, body: HTMLElement) {
+  constructor(
+    root: HTMLElement,
+    grip: HTMLElement,
+    head: HTMLElement,
+    body: HTMLElement,
+    toggle: HTMLButtonElement,
+  ) {
     this.root = root;
     this.head = head;
     this.body = body;
+
+    // しまう／出すの1押しボタン。ドラッグで下まで下げられることに気づかなくても使える
+    this.toggle = toggle;
+    toggle.addEventListener('click', () => this.setSnap(this.snap === 'closed' ? 'peek' : 'closed'));
 
     // つまみの線だけだと指で狙いにくいので、見出しの行（件数など）でも同じ操作を受ける。
     // 見出しの中のボタン（絞り込みの×など）は押せるまま残す
@@ -50,6 +66,8 @@ export class Sheet {
         return Math.round(this.height * 0.48);
       case 'peek':
         return Math.max(this.height - PEEK_PX, 0);
+      case 'closed':
+        return Math.max(this.height - CLOSED_PX, 0);
     }
   }
 
@@ -71,8 +89,7 @@ export class Sheet {
 
   /** 一覧から詳細に移るときなど、閉じすぎていたら少し持ち上げる。 */
   raiseAtLeast(snap: SheetSnap): void {
-    const order: SheetSnap[] = ['peek', 'half', 'full'];
-    if (order.indexOf(this.snap) < order.indexOf(snap)) this.setSnap(snap);
+    if (ORDER.indexOf(this.snap) < ORDER.indexOf(snap)) this.setSnap(snap);
   }
 
   private apply(): void {
@@ -80,6 +97,9 @@ export class Sheet {
     this.root.style.setProperty('--sheet-offset', `${offset}px`);
     // 画面いっぱいのときは角丸をやめ、上端をステータスバーの下から始める
     this.root.classList.toggle('is-full', this.snap === 'full');
+    this.root.classList.toggle('is-closed', this.snap === 'closed');
+    this.toggle.textContent = this.snap === 'closed' ? '▲ 一覧' : '▼ しまう';
+    this.toggle.setAttribute('aria-label', this.snap === 'closed' ? '一覧を出す' : '一覧をしまう');
     // 地図側のUI（現在地ボタン・帰属表示）を、シートに隠れない位置へ追従させる
     const visible = this.height - offset;
     document.documentElement.style.setProperty(
@@ -100,7 +120,7 @@ export class Sheet {
   private onMove(e: PointerEvent): void {
     if (!this.dragging) return;
     const delta = e.clientY - this.dragStartY;
-    const offset = Math.min(Math.max(this.dragStartOffset + delta, 0), this.offsetFor('peek'));
+    const offset = Math.min(Math.max(this.dragStartOffset + delta, 0), this.offsetFor('closed'));
     this.root.style.setProperty('--sheet-offset', `${offset}px`);
   }
 
@@ -113,15 +133,15 @@ export class Sheet {
     const delta = e.clientY - this.dragStartY;
     // ほとんど動かなかった場合はタップとみなし、次の段階へ送る
     if (Math.abs(delta) < 6) {
-      const next: Record<SheetSnap, SheetSnap> = { peek: 'half', half: 'full', full: 'peek' };
+      const next: Record<SheetSnap, SheetSnap> = { closed: 'peek', peek: 'half', half: 'full', full: 'peek' };
       this.snap = next[this.snap];
       this.apply();
       this.onSnapChange?.(this.snap);
       return;
     }
 
-    const offset = Math.min(Math.max(this.dragStartOffset + delta, 0), this.offsetFor('peek'));
-    const candidates: SheetSnap[] = ['full', 'half', 'peek'];
+    const offset = Math.min(Math.max(this.dragStartOffset + delta, 0), this.offsetFor('closed'));
+    const candidates: SheetSnap[] = ['full', 'half', 'peek', 'closed'];
     let best = candidates[0];
     let bestDist = Infinity;
     for (const c of candidates) {

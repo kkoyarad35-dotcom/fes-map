@@ -38,19 +38,43 @@ const FOOD_EVENT_EN =
 const NOT_FOOD_EVENT =
   /ビアガーデン|ビヤガーデン|ビアテラス|ビアホール|ビュッフェ|ブッフェ|バイキング|アフタヌーンティー|ティーパーティー|カフェ|ランチ|ディナー|プラン|食べ放題|講座|教室|体験|狩り|つかみ|釣り|展(示|覧)?(?!望)|植物|図鑑|食品サンプル|スタンプラリー|ツアー|クルーズ|列車|フェア|神社|大祭|例祭|奉納|競べ|フリーマーケット|フリマ|ハンドメイド|手作り|セリ市|講演/;
 
-/** 体験型の展示・謎解き・キャラクターもの・舞台など、遊びに行く催し。 */
-const ENTERTAINMENT_RE = new RegExp(
+/**
+ * 手ぶらBBQ・バーベキュー。食べるのが目的なので、プランや体験の語が付いていてもグルメ。
+ * （ビアガーデンは以前「グルメに混ざる」と言われたので入れない）
+ */
+const BBQ = /BBQ|バーベキュー|ばーべきゅー|焼肉(パーティ|ガーデン)/i;
+
+/*
+ * エンタメ系。以前は1つの「エンタメ」だったが、レジャーとの違いが分かりにくかったので
+ * 何をしに行くかで3つに分けた。見る順に意味がある（謎解き → キャラ → 舞台）。
+ */
+
+/** 自分が参加して遊ぶ・体験する展示やアトラクション。 */
+const EXPERIENCE = new RegExp(
   [
-    'すぎる|すぎ展|あるある|だらけ|体験型|参加型|没入|イマーシブ|ポップアップ|POP\\s?UP|コラボ',
-    '謎解き|脱出|リアル.{0,4}ゲーム|お化け屋敷|ホラー|心霊|肝試し|チームラボ|プロジェクションマッピング|VR|eスポーツ|ゲームショウ|映画祭|上映会|CIRCUS',
-    'キャラクター|アニメ|漫画|マンガ|まんが|劇場版|サンリオ|ポケモン|ちいかわ|ジブリ|ディズニー|ピクサー',
-    'ドラえもん|アンパンマン|すみっコ|リラックマ|スヌーピー|ミッフィー|ピングー|たべっ子|呪術|鬼滅|ワンピース',
-    'ガンダム|ウルトラマン|仮面ライダー|プリキュア|ハリー・?ポッター|ホグワーツ|刃牙|妖怪|コナン',
-    'お笑い|漫才|落語|寄席|演劇|舞台|ミュージカル|サーカス|マジック|イリュージョン|ショー(?!ト|ケース)',
-    'ばえる|映える|インスタ|超.{1,6}展|ざんねん',
+    'すぎる|すぎ展|あるある|だらけ|体験型|参加型|没入|イマーシブ',
+    '謎解き|脱出|リアル.{0,4}ゲーム|お化け屋敷|ホラー|心霊|肝試し|チームラボ|プロジェクションマッピング|VR|eスポーツ|ゲームショウ',
+    'プラネタリウム|ドームプラネット|ばえる|映える|インスタ|超.{1,6}展|ざんねん',
   ].join('|'),
   'i',
 );
+
+/** キャラクター・作品もの。展示もコラボカフェもポップアップもここ。 */
+const CHARACTER = new RegExp(
+  [
+    'ポップアップ|POP\\s?UP|コラボ|キャラクター|アニメ|漫画|マンガ|まんが|劇場版|サンリオ|ポケモン|ちいかわ|ジブリ|ディズニー|ピクサー',
+    'ドラえもん|アンパンマン|すみっコ|リラックマ|スヌーピー|ミッフィー|ピングー|たべっ子|呪術|鬼滅|ワンピース',
+    'ガンダム|ウルトラマン|仮面ライダー|プリキュア|ハリー・?ポッター|ホグワーツ|刃牙|妖怪|コナン',
+    'ドラゴンクエスト|ドラクエ|スーパーマリオ|カービィ|ゼルダ|ファイナルファンタジー|モンスターハンター',
+  ].join('|'),
+  'i',
+);
+
+/** 座って観る舞台・お笑い・映画。 */
+const STAGE =
+  /お笑い|漫才|コント|落語|寄席|講談|演劇|舞台|ミュージカル|サーカス|CIRCUS|マジック|イリュージョン|ショー(?!ト|ケース)|映画祭|上映会|野外映画|シネマ/i;
+/** 「〇〇サーカス」と名の付くイルミネーションや「〜の舞台へ」展は、舞台ではない。 */
+const NOT_STAGE = /展|イルミネーション|ライトアップ/;
 
 /**
  * 見て楽しい・笑える系の展示（「〇〇がいっぱい展」「ざんねんないきもの展」など）。
@@ -83,28 +107,39 @@ const LESSON =
 const MUSIC_FES =
   /(音楽|ミュージック|ロック|ジャズ|ヒップホップ|music|rock|jazz|ライブ|LIVE|DJ|アイドル)[^\s　]{0,10}?(祭|フェス)/i;
 
+/** 花火大会。祭りとは別のチップにする（花火だけを探す人が多い）。 */
+const FIREWORKS = /花火|HANABI/i;
+
 const FESTIVAL =
-  /祭|まつり|花火|盆踊り|神輿|山車|縁日|ハロウィン|カーニバル|パレード|よさこい|灯籠|灯篭|どんど|フェスタ|フェスティバル|フェス(?!ト)/;
+  /祭|まつり|盆踊り|神輿|山車|縁日|ハロウィン|カーニバル|パレード|よさこい|灯籠|灯篭|どんど|フェスタ|フェスティバル|フェス(?!ト)/;
 /** 「〇〇フェス」と名乗っていても、限られた人向けの集まり。祭りには入れない。 */
 const NOT_FESTIVAL = /福祉|介護|ヨガ|スピ|スピリチュアル|癒し|学校|防災|健康|相談|ハンドメイド|クラフト|手作り|手づくり/;
 
-/**
- * 出かけて遊ぶもの。動物園・遊園地・味覚狩り・紅葉・イルミネーション・スポーツ観戦など。
+/*
+ * レジャー系。以前は1つの「レジャー」に600件以上入っていたので、行き先の種類で4つに分けた。
  * 習いごと（ピラティス・ヨガ教室など）は先に LESSON で外れるので、ここには来ない。
  */
-const LEISURE = new RegExp(
+
+/** 入場して遊ぶ施設。 */
+const PARK =
+  /動物園|水族館|アクアリウム|遊園地|テーマパーク|サファリ|牧場|プール|アスレチック|キッズパーク|ジョイポリス|JOYPOLIS|動物ふれあい|ふれあい動物/;
+
+/** 景色を見に行くもの。 */
+const NATURE =
+  /紅葉|もみじ|花畑|見ごろ|見頃|ネモフィラ|コスモス|秋桜|ひまわり|ラベンダー|バラ園|ローズガーデン|植物園|フラワーパーク|イルミネーション|ライトアップ|夜景|鵜飼|展望台/;
+
+/** 外で体を動かす・乗り物に乗る。 */
+const OUTDOOR = new RegExp(
   [
-    '動物園|水族館|遊園地|テーマパーク|サファリ|牧場|プール|海水浴|キャンプ|グランピング|アスレチック',
-    'BBQ|バーベキュー|ビアガーデン|ビヤガーデン|ビアテラス|ナイトプール|キッズパーク|ジョイポリス|JOYPOLIS',
-    '狩り|収穫体験|芋掘り|いも掘り|潮干狩り|釣り|つかみ取り|つかみどり|もぎとり|動物ふれあい|ふれあい動物',
-    '紅葉|もみじ|花畑|見ごろ|見頃|ネモフィラ|コスモス|秋桜|ひまわり|ラベンダー|バラ園|ローズガーデン|植物園|フラワーパーク',
-    'イルミネーション|ライトアップ|夜景|ナイトサファリ|プラネタリウム|ドームプラネット|鵜飼',
+    '海水浴|キャンプ|グランピング|狩り|収穫体験|芋掘り|いも掘り|潮干狩り|釣り|つかみ取り|つかみどり|もぎとり',
     '温泉|ハイキング|トレッキング|登山|クルーズ|遊覧|乗馬|ラフティング|カヌー|カヤック|(?<![A-Za-z])SUP(?![A-Za-z])|スキー|スノーボード|スノーシュー|雪遊び|スケート',
-    '観戦|プロ野球|Jリーグ|J1|J2|Bリーグ|ラグビー|大相撲|相撲|プロレス|ボクシング|格闘技|競馬|競輪|モータースポーツ',
-    'マラソン|駅伝|トライアスロン|サイクリング|ロゲイニング',
-    '観光列車|(?<![A-Za-z])SL(?![A-Za-z])|蒸気機関車|トロッコ|ゴンドラ|ロープウェイ|展望台|アクアリウム|ゴルフ|ナイトラン|水合戦',
+    'サイクリング|ロゲイニング|観光列車|(?<![A-Za-z])SL(?![A-Za-z])|蒸気機関車|トロッコ|ゴンドラ|ロープウェイ|ゴルフ|ナイトラン|水合戦',
   ].join('|'),
 );
+
+/** 観る・出るスポーツ。 */
+const SPORTS =
+  /観戦|プロ野球|Jリーグ|J1|J2|Bリーグ|ラグビー|大相撲|相撲|プロレス|ボクシング|格闘技|競馬|競輪|モータースポーツ|マラソン|駅伝|トライアスロン/;
 
 /** 「企画展 大阪城動物園」のような展示はレジャーではなくアート。 */
 const NOT_LEISURE = /企画展|企画展示|展覧会|特別展|ギャラリー/;
@@ -124,15 +159,31 @@ const MARKET =
  * 取りこぼしは FOOD_WORD に語を足して拾う（例: 房総 生シェイク祭り → シェイク）。
  */
 export function isFoodEvent(title: string): boolean {
+  if (BBQ.test(title)) return true;
   if (NOT_FOOD_EVENT.test(title)) return false;
   return FOOD_EVENT.test(title) || FOOD_EVENT_EN.test(title);
 }
 
-export function isEntertainment(title: string): boolean {
-  if (SERIOUS_EXHIBITION.test(title) || NOT_ENTERTAINMENT.test(title)) return false;
-  if (ENTERTAINMENT_RE.test(title)) return true;
+/** エンタメ系のどれか。当てはまらなければ null。 */
+function entertainmentOf(title: string): EventCategory | null {
+  if (SERIOUS_EXHIBITION.test(title) || NOT_ENTERTAINMENT.test(title)) return null;
+  if (EXPERIENCE.test(title)) return 'experience';
+  if (CHARACTER.test(title)) return 'character';
+  if (STAGE.test(title) && !NOT_STAGE.test(title)) return 'stage';
   // 「〇〇がいっぱい展」のような、見て楽しむ系の展示
-  return /展/.test(title) && PLAYFUL_EXHIBITION.test(title);
+  if (/展/.test(title) && PLAYFUL_EXHIBITION.test(title)) return 'experience';
+  return null;
+}
+
+/** レジャー系のどれか。当てはまらなければ null。 */
+function leisureOf(title: string): EventCategory | null {
+  if (NOT_LEISURE.test(title)) return null;
+  if (PARK.test(title)) return 'park';
+  if (SPORTS.test(title)) return 'sports';
+  // 「温泉イルミネーション」「紅葉ハイキング」は景色を見に行くほう
+  if (NATURE.test(title)) return 'nature';
+  if (OUTDOOR.test(title)) return 'outdoor';
+  return null;
 }
 
 /**
@@ -140,8 +191,9 @@ export function isEntertainment(title: string): boolean {
  * （収集側は「フェス」の語だけで音楽、「大会」だけでスポーツにしていて当てにならない）。
  * 説明文も見ない。「グルメも楽しめる」のような添え物の話が多く、混ざる元になる。
  *
- * 見る順番に意味がある。習いごとを最初に外し、そのあとは力を入れたい順
- * （グルメ → エンタメ → 祭り → レジャー → 音楽 → アート）に当てていく。
+ * 見る順番に意味がある。習いごとを最初に外し、そのあとは
+ * グルメ → エンタメ系 → 花火 → 祭り → レジャー系 → 音楽 → アート の順に当てていく
+ * （チップの並び順とは別。「〇〇紅葉まつり」は祭りに、「謎解き×動物園」は謎解きに寄せる）。
  */
 export function classify(ev: EventItem): EventCategory {
   const title = ev.title;
@@ -149,10 +201,13 @@ export function classify(ev: EventItem): EventCategory {
   if (NOT_AN_OUTING.test(title)) return 'other';
   if (LESSON.test(title)) return 'tech';
   if (isFoodEvent(title)) return 'food';
-  if (isEntertainment(title)) return 'entertainment';
+  const ent = entertainmentOf(title);
+  if (ent) return ent;
   if (MUSIC_FES.test(title)) return 'music';
+  if (FIREWORKS.test(title)) return 'fireworks';
   if (FESTIVAL.test(title) && !NOT_FESTIVAL.test(title)) return 'festival';
-  if (LEISURE.test(title) && !NOT_LEISURE.test(title)) return 'leisure';
+  const leisure = leisureOf(title);
+  if (leisure) return leisure;
   if (MUSIC.test(title)) return 'music';
   if (ART.test(title)) return 'art';
   if (MARKET.test(title)) return 'market';
@@ -161,7 +216,52 @@ export function classify(ev: EventItem): EventCategory {
   return 'other';
 }
 
-/** 読み込んだ全イベントのカテゴリをその場で直す。 */
+/*
+ * 屋内か屋外か（「雨の日」「晴れの日」の絞り込み用）。
+ * タイトルにはっきり書いてあればそれ、無ければ会場名、それも無ければカテゴリで決める。
+ */
+
+/** タイトルにあれば屋外と決めてよい語。 */
+const OUTDOOR_TITLE = /花火|野外|屋外|アウトドア|キャンプ|BBQ|バーベキュー|河川敷|海水浴|ビーチ|紅葉|花畑|狩り|潮干狩り|ハイキング|登山|マラソン|パレード|盆踊り|縁日/i;
+/** タイトルにあれば屋内と決めてよい語。 */
+const INDOOR_TITLE = /屋内|室内|水族館|アクアリウム|プラネタリウム|美術館|博物館|科学館|映画|上映|シネマ|百貨店|デパート|物産展|(北海道|九州|沖縄|京都|東北|信州)展/;
+/** 屋内の会場名。ドーム・アリーナは屋根があるので雨でも行ける。 */
+const INDOOR_VENUE =
+  /ドーム|アリーナ|ホール|劇場|シアター|ミュージアム|ギャラリー|美術館|博物館|資料館|記念館|文学館|科学館|水族館|会館|公民館|百貨店|デパート|モール|アウトレット|ビル|ライブハウス|映画館|シネマ|スタジオ|イオン|パルコ|PARCO|ルミネ|丸井|ホテル|カフェ|センター|プラザ|館$|館[\s　(（]/i;
+const OUTDOOR_VENUE =
+  /公園|広場|河川敷|河原|海岸|ビーチ|浜|港|漁港|高原|山頂|牧場|農園|果樹園|キャンプ場|グラウンド|球場|競技場|スタジアム|商店街|通り|境内|神社|寺|城址|城跡|庭園|運動場|駐車場/;
+
+/** カテゴリごとの、どちらとも分からないときの既定。other は決めない。 */
+const INDOOR_DEFAULT: Partial<Record<EventCategory, boolean>> = {
+  food: false,
+  park: false,
+  nature: false,
+  outdoor: false,
+  sports: false,
+  festival: false,
+  fireworks: false,
+  market: false,
+  experience: true,
+  character: true,
+  stage: true,
+  music: true,
+  art: true,
+  tech: true,
+};
+
+export function indoorOf(ev: EventItem): boolean | undefined {
+  if (OUTDOOR_TITLE.test(ev.title)) return false;
+  if (INDOOR_TITLE.test(ev.title)) return true;
+  const venue = ev.venue ?? '';
+  if (INDOOR_VENUE.test(venue)) return true;
+  if (OUTDOOR_VENUE.test(venue)) return false;
+  return INDOOR_DEFAULT[ev.category];
+}
+
+/** 読み込んだ全イベントのカテゴリ（と屋内・屋外）をその場で直す。 */
 export function reclassify(events: EventItem[]): void {
-  for (const ev of events) ev.category = classify(ev);
+  for (const ev of events) {
+    ev.category = classify(ev);
+    ev.indoor = indoorOf(ev);
+  }
 }

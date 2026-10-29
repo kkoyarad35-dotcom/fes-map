@@ -261,6 +261,38 @@ button {
   box-shadow: 0 3px 10px color-mix(in srgb, var(--chip-color, var(--accent)) 40%, transparent);
 }
 
+/* 長押しで説明を出すので、文字選択やコピーのメニューを出さない */
+.chip {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* チップ長押しの説明（chips.ts） */
+.chip-tip {
+  position: fixed;
+  z-index: 60;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.55;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.chip-tip strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.chip-tip[hidden] {
+  display: none;
+}
+
 .chip__count {
   font-size: 11px;
   opacity: 0.75;
@@ -728,6 +760,34 @@ select.chip--scene option {
   height: 4px;
   border-radius: 999px;
   background: var(--line);
+}
+
+/* つまみの段の右端に置く「しまう／一覧」ボタン */
+.sheet__toggle {
+  position: absolute;
+  top: 4px;
+  right: 10px;
+  z-index: 1;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sheet.is-full .sheet__toggle {
+  top: calc(var(--safe-top) + 4px);
+}
+
+/* しまったときは「一覧」を目立たせて、出し方が分かるようにする */
+.sheet.is-closed .sheet__toggle {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* 見出しの行も、つまみと同じくタップで高さを切り替えられる（sheet.ts） */
