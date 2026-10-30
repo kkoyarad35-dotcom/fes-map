@@ -178,24 +178,16 @@ const OUTDOOR = new RegExp(
   ].join('|'),
 );
 
-/** 観る・出るスポーツ。 */
-const SPORTS = new RegExp(
-  [
-    '観戦|プロ野球|高校野球|社会人野球|独立リーグ|Jリーグ|J1|J2|J3|WEリーグ|なでしこ|サッカー|フットサル|日本代表|天皇杯|ルヴァン',
-    'Bリーグ|バスケットボール|バスケ|バレーボール|Vリーグ|SVリーグ|ハンドボール|卓球|Tリーグ|テニス|アイスホッケー|フィギュアスケート',
-    'ラグビー|大相撲|相撲|プロレス|ボクシング|格闘技|競馬|競輪|競艇|ボートレース|オートレース|モータースポーツ|マラソン|駅伝|トライアスロン',
-    'ホームゲーム|ホーム戦|夏の甲子園|春の甲子園|センバツ',
-    // 「ツエーゲン金沢vsレノファ山口FC」のような対戦カード
-    '(?<![A-Za-z])(FC|SC)(?![A-Za-z])|ＦＣ|ユナイテッド|レッズ|アントラーズ|マリノス|フロンターレ|ガンバ大阪|セレッソ|ジャイアンツ|タイガース|ホークス|カープ|ドラゴンズ|スワローズ|ベイスターズ|ファイターズ|イーグルス|マリーンズ|ライオンズ|バファローズ',
-  ].join('|'),
-);
+/*
+ * スポーツ観戦の項目は、収集元に試合日程がほぼ無く件数が少なすぎるので、いったん外した（2026-10-30）。
+ * マラソン大会などは「その他」に入る。試合日程の収集元を足したら戻す。
+ */
 
 /**
- * フリマ・マルシェなどの「市」。大井競馬場のフリマは競馬ではなく買い物に行く日なので、
- * これがあるときはスポーツに入れない（会場が競馬場・スタジアムでも）。
+ * フリマ・蚤の市。会場が競馬場やスタジアムでもフリマ（大井競馬場のフリマは買い物に行く日）。
+ * マルシェ・朝市・クラフトフェアは「分かりにくい」と言われて外し、その他に回した。
  */
-const STRONG_MARKET =
-  /フリマ|フリーマーケット|蚤の市|骨董市|がらくた市|マルシェ|朝市|青空市|クラフトフェア|手づくり市|手作り市|陶器市|植木市|古着市/;
+const FLEA_MARKET = /フリマ|フリーマーケット|蚤の市|骨董市|がらくた市|古着市|ガレージセール/;
 
 /** 服・ファッション。古着市やファミリーセール、ポップアップのアパレルなど。 */
 const FASHION =
@@ -209,9 +201,6 @@ const MUSIC =
 
 const ART =
   /展覧会|美術|アート|写真展|個展|企画展|特別展|展示|博物館|ミュージアム|ギャラリー|作品展|コレクション展|展$|展[「（(\s　～〜]/;
-
-const MARKET =
-  /マルシェ|フリーマーケット|フリマ|朝市|青空市|空ノ市|蚤の市|骨董市|がらくた市|クラフトフェア|ハンドメイド|手づくり市|手作り市|物産|陶器市|植木市|マーケット|バザー|クラフト|手仕事/;
 
 /*
  * 「ウォーカープラスのグルメ一覧に載っている＋祭・フェス」も試したが、
@@ -236,7 +225,7 @@ export function isFoodEvent(title: string): boolean {
  * 「コスモスまつり」は花を見に行くので紅葉・花。
  * 施設だけはタイトルに無くても会場名で見る（会場が「浅草花やしき」など）。
  *
- * 習いごと・休日の行き先でないもの、アート・マルシェは、ほかに何も当てはまらないときだけ。
+ * 習いごと・休日の行き先でないもの、アートは、ほかに何も当てはまらないときだけ。
  * 「ドラえもん展」をアートにも入れると、アートが展示だらけになるため。
  */
 export function categoriesOf(ev: EventItem): EventCategory[] {
@@ -252,9 +241,8 @@ export function categoriesOf(ev: EventItem): EventCategory[] {
   const leisureOk = !NOT_LEISURE.test(title);
   const entOk = !SERIOUS_EXHIBITION.test(title) && !NOT_ENTERTAINMENT.test(title);
 
-  const market = STRONG_MARKET.test(title);
   add('food', isFoodEvent(title));
-  add('market', market);
+  add('market', FLEA_MARKET.test(title));
   add('fashion', FASHION.test(title));
   add('park', leisureOk && PARK_PLACE.test(`${title} ${ev.venue ?? ''}`));
   // 「〇〇がいっぱい展」のような、見て楽しむ系の展示も体験に
@@ -266,7 +254,6 @@ export function categoriesOf(ev: EventItem): EventCategory[] {
   add('nature', leisureOk && NATURE.test(title));
   add('festival', FESTIVAL.test(title) && !NOT_FESTIVAL.test(title));
   add('park', leisureOk && PARK.test(title));
-  add('sports', leisureOk && !market && SPORTS.test(title));
   add('outdoor', leisureOk && OUTDOOR.test(title));
 
   if (out.size > 0) {
@@ -276,7 +263,6 @@ export function categoriesOf(ev: EventItem): EventCategory[] {
   }
   if (MUSIC.test(title)) return ['music'];
   if (ART.test(title)) return ['art'];
-  if (MARKET.test(title)) return ['market'];
   // connpass などの勉強会はタイトルに決まった語が無いことも多いので、収集元の判定を残す
   if (ev.category === 'tech') return ['tech'];
   return ['other'];
@@ -308,7 +294,6 @@ const INDOOR_DEFAULT: Partial<Record<EventCategory, boolean>> = {
   park: false,
   nature: false,
   outdoor: false,
-  sports: false,
   festival: false,
   fireworks: false,
   market: false,

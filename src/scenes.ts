@@ -100,10 +100,10 @@ const RULES: Record<Scene, Rule> = {
 const CATEGORY_BONUS: Record<Scene, Partial<Record<EventCategory, number>>> = {
   date: {
     food: 5, park: 5, nature: 5, outdoor: 5, experience: 5, stage: 5, fireworks: 5,
-    music: 4, art: 4, anime: 3, festival: 3, sports: 3, fashion: 3, market: 2,
+    music: 4, art: 4, anime: 3, festival: 3, fashion: 3, market: 2,
   },
   friends: {
-    food: 5, park: 5, outdoor: 5, sports: 5, experience: 5, stage: 5, fireworks: 5, festival: 5, music: 5,
+    food: 5, park: 5, outdoor: 5, experience: 5, stage: 5, fireworks: 5, festival: 5, music: 5,
     anime: 4, fashion: 4, nature: 3, art: 2, market: 2,
   },
   family: {

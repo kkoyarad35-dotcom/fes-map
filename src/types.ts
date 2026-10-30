@@ -11,7 +11,6 @@ export type EventCategory =
   | 'park' // 動物園・水族館・遊園地・牧場・プール
   | 'nature' // 紅葉・花・イルミネーション・夜景
   | 'outdoor' // キャンプ・味覚狩り・釣り・ハイキング・温泉・クルーズ
-  | 'sports' // スポーツ観戦・マラソン大会
   | 'experience' // 謎解き・脱出・お化け屋敷・チームラボ・「〇〇すぎる展」
   | 'anime' // アニメ・漫画・ゲーム・キャラクターのイベント、コラボカフェ・コラボ企画、ポップアップ
   | 'stage' // お笑い・落語・演劇・ミュージカル・サーカス・映画祭
@@ -19,7 +18,7 @@ export type EventCategory =
   | 'fireworks' // 花火大会
   | 'music' // ライブ・コンサート・音楽フェス
   | 'art' // 展覧会・美術館・写真展
-  | 'market' // マルシェ・フリマ・物産展
+  | 'market' // フリマ・蚤の市（マルシェ・朝市は入れない）
   | 'fashion' // 古着市・ファミリーセール・アパレルのポップアップなど、服やおしゃれの買い物
   | 'tech' // 教室・講座・勉強会（「オカリナ教室」「ピラティス教室」もここ）
   | 'other';
@@ -134,12 +133,6 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     emoji: '🏕️',
     desc: 'キャンプ・味覚狩り・釣り・ハイキング・温泉・クルーズ・SLなど、外で体を動かして遊ぶもの',
   },
-  sports: {
-    label: 'スポーツ観戦',
-    color: '#1d4ed8',
-    emoji: '⚽',
-    desc: 'サッカー（Jリーグ・日本代表）・プロ野球・バスケ・バレー・相撲・プロレス・競馬などの観戦、マラソン大会',
-  },
   experience: {
     label: '謎解き・体験',
     color: '#db2777',
@@ -183,10 +176,10 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     desc: '美術館・博物館の展覧会、写真展、個展など',
   },
   market: {
-    label: 'マルシェ・フリマ',
+    label: 'フリマ',
     color: '#d97706',
     emoji: '🧺',
-    desc: 'マルシェ・フリマ・朝市・クラフトフェア・蚤の市など（大井競馬場のフリマのように、会場が競馬場やスタジアムでもここ）',
+    desc: 'フリーマーケット・蚤の市・骨董市・古着市など（大井競馬場のフリマのように、会場が競馬場やスタジアムでもここ）',
   },
   fashion: {
     label: 'ファッション',
