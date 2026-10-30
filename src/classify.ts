@@ -179,8 +179,27 @@ const OUTDOOR = new RegExp(
 );
 
 /** 観る・出るスポーツ。 */
-const SPORTS =
-  /観戦|プロ野球|Jリーグ|J1|J2|Bリーグ|ラグビー|大相撲|相撲|プロレス|ボクシング|格闘技|競馬|競輪|モータースポーツ|マラソン|駅伝|トライアスロン/;
+const SPORTS = new RegExp(
+  [
+    '観戦|プロ野球|高校野球|社会人野球|独立リーグ|Jリーグ|J1|J2|J3|WEリーグ|なでしこ|サッカー|フットサル|日本代表|天皇杯|ルヴァン',
+    'Bリーグ|バスケットボール|バスケ|バレーボール|Vリーグ|SVリーグ|ハンドボール|卓球|Tリーグ|テニス|アイスホッケー|フィギュアスケート',
+    'ラグビー|大相撲|相撲|プロレス|ボクシング|格闘技|競馬|競輪|競艇|ボートレース|オートレース|モータースポーツ|マラソン|駅伝|トライアスロン',
+    'ホームゲーム|ホーム戦|夏の甲子園|春の甲子園|センバツ',
+    // 「ツエーゲン金沢vsレノファ山口FC」のような対戦カード
+    '(?<![A-Za-z])(FC|SC)(?![A-Za-z])|ＦＣ|ユナイテッド|レッズ|アントラーズ|マリノス|フロンターレ|ガンバ大阪|セレッソ|ジャイアンツ|タイガース|ホークス|カープ|ドラゴンズ|スワローズ|ベイスターズ|ファイターズ|イーグルス|マリーンズ|ライオンズ|バファローズ',
+  ].join('|'),
+);
+
+/**
+ * フリマ・マルシェなどの「市」。大井競馬場のフリマは競馬ではなく買い物に行く日なので、
+ * これがあるときはスポーツに入れない（会場が競馬場・スタジアムでも）。
+ */
+const STRONG_MARKET =
+  /フリマ|フリーマーケット|蚤の市|骨董市|がらくた市|マルシェ|朝市|青空市|クラフトフェア|手づくり市|手作り市|陶器市|植木市|古着市/;
+
+/** 服・ファッション。古着市やファミリーセール、ポップアップのアパレルなど。 */
+const FASHION =
+  /古着|ファッション|アパレル|ファミリーセール|サンプルセール|バーゲン|ヴィンテージ|ビンテージ|スニーカー|コスメ|アクセサリー|ジュエリー|きもの市|着物市|呉服|洋服|子供服|ウェディングドレス|スニーカー|シューズ|帽子|メガネ|眼鏡/;
 
 /** 「企画展 大阪城動物園」のような展示はレジャーではなくアート。 */
 const NOT_LEISURE = /企画展|企画展示|展覧会|特別展|ギャラリー/;
@@ -233,7 +252,10 @@ export function categoriesOf(ev: EventItem): EventCategory[] {
   const leisureOk = !NOT_LEISURE.test(title);
   const entOk = !SERIOUS_EXHIBITION.test(title) && !NOT_ENTERTAINMENT.test(title);
 
+  const market = STRONG_MARKET.test(title);
   add('food', isFoodEvent(title));
+  add('market', market);
+  add('fashion', FASHION.test(title));
   add('park', leisureOk && PARK_PLACE.test(`${title} ${ev.venue ?? ''}`));
   // 「〇〇がいっぱい展」のような、見て楽しむ系の展示も体験に
   add('experience', entOk && (EXPERIENCE.test(title) || (/展/.test(title) && PLAYFUL_EXHIBITION.test(title))));
@@ -244,7 +266,7 @@ export function categoriesOf(ev: EventItem): EventCategory[] {
   add('nature', leisureOk && NATURE.test(title));
   add('festival', FESTIVAL.test(title) && !NOT_FESTIVAL.test(title));
   add('park', leisureOk && PARK.test(title));
-  add('sports', leisureOk && SPORTS.test(title));
+  add('sports', leisureOk && !market && SPORTS.test(title));
   add('outdoor', leisureOk && OUTDOOR.test(title));
 
   if (out.size > 0) {

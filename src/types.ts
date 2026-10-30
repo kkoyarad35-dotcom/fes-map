@@ -20,6 +20,7 @@ export type EventCategory =
   | 'music' // ライブ・コンサート・音楽フェス
   | 'art' // 展覧会・美術館・写真展
   | 'market' // マルシェ・フリマ・物産展
+  | 'fashion' // 古着市・ファミリーセール・アパレルのポップアップなど、服やおしゃれの買い物
   | 'tech' // 教室・講座・勉強会（「オカリナ教室」「ピラティス教室」もここ）
   | 'other';
 
@@ -137,7 +138,7 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     label: 'スポーツ観戦',
     color: '#1d4ed8',
     emoji: '⚽',
-    desc: 'プロ野球・Jリーグ・Bリーグ・相撲・プロレスなどの観戦、マラソン大会',
+    desc: 'サッカー（Jリーグ・日本代表）・プロ野球・バスケ・バレー・相撲・プロレス・競馬などの観戦、マラソン大会',
   },
   experience: {
     label: '謎解き・体験',
@@ -146,7 +147,7 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     desc: '謎解き・脱出ゲーム・お化け屋敷・チームラボ・プラネタリウム・「〇〇すぎる展」のような体験型の展示',
   },
   anime: {
-    label: 'アニメ',
+    label: 'アニメ・キャラ',
     color: '#f472b6',
     emoji: '🧸',
     desc: 'アニメ・漫画・ゲーム・キャラクターのイベントや展示、コラボカフェ、コラボ企画、ポップアップストアなど',
@@ -182,10 +183,16 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     desc: '美術館・博物館の展覧会、写真展、個展など',
   },
   market: {
-    label: 'マルシェ',
+    label: 'マルシェ・フリマ',
     color: '#d97706',
     emoji: '🧺',
-    desc: 'マルシェ・フリマ・朝市・クラフトフェア・蚤の市など',
+    desc: 'マルシェ・フリマ・朝市・クラフトフェア・蚤の市など（大井競馬場のフリマのように、会場が競馬場やスタジアムでもここ）',
+  },
+  fashion: {
+    label: 'ファッション',
+    color: '#c026d3',
+    emoji: '👗',
+    desc: '古着市・ファミリーセール・アパレルやコスメのポップアップ・きもの市など、服やおしゃれの買い物',
   },
   tech: {
     label: '教室・講座',
