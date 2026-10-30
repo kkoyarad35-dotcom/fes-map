@@ -189,19 +189,27 @@ async function boot(): Promise<void> {
 
   /** 日付以外の条件（カテゴリ・キーワード）を適用した集合。日別件数の計算にも使う。 */
   function baseFiltered(): EventItem[] {
+    return state.bundle.events.filter(
+      (ev) => (state.categories.size === 0 || state.categories.has(ev.category)) && matchesOthers(ev, true),
+    );
+  }
+
+  /**
+   * カテゴリ以外の条件（だれと・天気・キーワード）。チップの件数にも使い、
+   * 「デート」「雨の日」を選んだらカテゴリごとの件数もそれに合わせて変わるようにする。
+   * withScene=false は「だれと」の選択肢ごとの件数を数えるとき用（だれと自身では絞らない）。
+   */
+  function matchesOthers(ev: EventItem, withScene: boolean): boolean {
+    if (withScene && state.scene && !ev.scenes?.[state.scene]) return false;
+    // 屋内・屋外が分からないものは、どちらの天気でも残す
+    if (state.weather === 'rainy' && ev.indoor === false) return false;
+    if (state.weather === 'sunny' && ev.indoor === true) return false;
     const q = state.query.trim().toLowerCase();
-    return state.bundle.events.filter((ev) => {
-      if (state.categories.size > 0 && !state.categories.has(ev.category)) return false;
-      if (state.scene && !ev.scenes?.[state.scene]) return false;
-      // 屋内・屋外が分からないものは、どちらの天気でも残す
-      if (state.weather === 'rainy' && ev.indoor === false) return false;
-      if (state.weather === 'sunny' && ev.indoor === true) return false;
-      if (q) {
-        const hay = `${ev.title} ${ev.venue ?? ''} ${ev.address ?? ''} ${ev.organizer ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+    if (q) {
+      const hay = `${ev.title} ${ev.venue ?? ''} ${ev.address ?? ''} ${ev.organizer ?? ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
   }
 
   function forDay(events: EventItem[], day: DayKey): EventItem[] {
@@ -244,15 +252,22 @@ async function boot(): Promise<void> {
     }
     strip.setCounts(counts);
 
-    // カテゴリチップの件数は、その日のイベントだけを数える
+    // チップの件数は、その日のイベントを「だれと・天気・キーワード」で絞ったうえで数える
+    // （カテゴリの選択では絞らない。選んでいないカテゴリにも何件あるか見えるように）
     const byCat = new Map<EventCategory, number>();
     const byScene = new Map<Scene, number>();
-    const dayAll = state.bundle.events.filter((ev) => occursOn(ev, state.day));
-    for (const ev of dayAll) {
+    let catTotal = 0;
+    for (const ev of state.bundle.events) {
+      if (!occursOn(ev, state.day) || !matchesOthers(ev, false)) continue;
+      // だれとの件数は、選んでいるカテゴリの中で数える
+      if (state.categories.size === 0 || state.categories.has(ev.category)) {
+        for (const s of Object.keys(ev.scenes ?? {}) as Scene[]) byScene.set(s, (byScene.get(s) ?? 0) + 1);
+      }
+      if (state.scene && !ev.scenes?.[state.scene]) continue;
       byCat.set(ev.category, (byCat.get(ev.category) ?? 0) + 1);
-      for (const s of Object.keys(ev.scenes ?? {}) as Scene[]) byScene.set(s, (byScene.get(s) ?? 0) + 1);
+      catTotal++;
     }
-    chips.setCounts(byCat, dayAll.length);
+    chips.setCounts(byCat, catTotal);
     scenes.setCounts(byScene);
 
     // 地図には全部出し、一覧だけを「このエリアで検索」の範囲に絞る
