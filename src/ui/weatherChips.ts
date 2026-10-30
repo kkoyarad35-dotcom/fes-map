@@ -1,57 +1,37 @@
-export type Weather = 'sunny' | 'rainy';
-
-export const WEATHER_META: Record<Weather, { label: string; emoji: string; color: string; note: string }> = {
-  sunny: { label: '晴れの日', emoji: '☀️', color: '#f59e0b', note: '外で楽しむもの' },
-  rainy: { label: '雨の日', emoji: '☔', color: '#0284c7', note: '屋内で楽しめるもの' },
-};
-
-const NONE = '';
-
 /**
- * 「晴れの日」「雨の日」の選択。晴れなら屋外、雨なら屋内のものだけにする
- * （判定は classify.ts の indoorOf。どちらとも分からないものは両方に出す）。
- * 「だれと」と同じく、カテゴリの段に小さなプルダウンを1つ置く。
+ * 「☔ 雨の日」のチップ。押すと屋内で楽しめるものだけにする
+ * （判定は classify.ts の indoorOf。屋内か屋外か分からないものは残す）。
+ * 以前は「晴れの日」も選べるプルダウンだったが、晴れなら何でも行けるので要らないと言われて外した。
+ * 「だれと」のすぐ後ろに置く。
  */
-export class WeatherChips {
-  private select: HTMLSelectElement;
+export const RAIN_LABEL = '☔ 雨の日';
+export const RAIN_NOTE = '屋内で楽しめるもの';
 
-  constructor(root: HTMLElement, onChange: (weather: Weather | null) => void) {
-    this.select = document.createElement('select');
-    this.select.className = 'chip chip--scene';
-    this.select.setAttribute('aria-label', '天気で絞り込む');
+export class RainChip {
+  private button: HTMLButtonElement;
+  private on = false;
 
-    const none = document.createElement('option');
-    none.value = NONE;
-    none.textContent = '🌤 天気';
-    this.select.appendChild(none);
-
-    for (const [key, meta] of Object.entries(WEATHER_META)) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      // 選んだあとはチップの幅に収まるよう短く。何に絞ったかは一覧の見出しで説明する
-      opt.textContent = `${meta.emoji} ${meta.label}`;
-      this.select.appendChild(opt);
-    }
-
-    this.select.addEventListener('change', () => {
-      this.sync();
-      onChange((this.select.value || null) as Weather | null);
+  constructor(root: HTMLElement, onChange: (rainy: boolean) => void) {
+    this.button = document.createElement('button');
+    this.button.type = 'button';
+    this.button.className = 'chip';
+    this.button.textContent = RAIN_LABEL;
+    this.button.title = RAIN_NOTE;
+    this.button.style.setProperty('--chip-color', '#0284c7');
+    this.button.addEventListener('click', () => {
+      this.set(!this.on);
+      onChange(this.on);
     });
-    // 「だれと」のすぐ後ろに置く
-    const scene = root.querySelector('.chip--scene');
-    if (scene) scene.after(this.select);
-    else root.prepend(this.select);
-  }
+    this.set(false);
 
-  private sync(): void {
-    const weather = (this.select.value || null) as Weather | null;
-    this.select.setAttribute('aria-pressed', String(weather !== null));
-    this.select.style.setProperty('--chip-color', weather ? WEATHER_META[weather].color : '');
+    const scene = root.querySelector('.chip--scene');
+    if (scene) scene.after(this.button);
+    else root.prepend(this.button);
   }
 
   /** 一覧側の「×」から外したときなど、外から選択を変える。onChange は呼ばない。 */
-  set(weather: Weather | null): void {
-    this.select.value = weather ?? NONE;
-    this.sync();
+  set(on: boolean): void {
+    this.on = on;
+    this.button.setAttribute('aria-pressed', String(on));
   }
 }

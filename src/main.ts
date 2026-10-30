@@ -14,7 +14,7 @@ import { EventMap } from './map';
 import { SCENE_META, type Scene } from './scenes';
 import { CategoryChips } from './ui/chips';
 import { SceneChips } from './ui/sceneChips';
-import { WEATHER_META, WeatherChips, type Weather } from './ui/weatherChips';
+import { RAIN_LABEL, RAIN_NOTE, RainChip } from './ui/weatherChips';
 import { DateStrip } from './ui/dateStrip';
 import { Sheet } from './ui/sheet';
 import { creditBlock, detailView, emptyState, eventCard } from './ui/views';
@@ -53,8 +53,8 @@ interface State {
   categories: Set<EventCategory>;
   /** 「デート」などのおすすめ。選んでいるときは、そのシーンに向くものだけをおすすめ順に出す。 */
   scene: Scene | null;
-  /** 「晴れの日」なら屋外、「雨の日」なら屋内のものだけ。 */
-  weather: Weather | null;
+  /** 「雨の日」を押していれば、屋内で楽しめるものだけ。 */
+  rainy: boolean;
   /** 「このエリアで検索」で決めた範囲。一覧をこの中のイベントだけにする。 */
   area: Area | null;
   query: string;
@@ -86,7 +86,7 @@ async function boot(): Promise<void> {
     day: '',
     categories: new Set(),
     scene: null,
-    weather: null,
+    rainy: false,
     area: null,
     query: '',
     origin: null,
@@ -117,8 +117,8 @@ async function boot(): Promise<void> {
     if (scene) sheet.raiseAtLeast('half');
     refresh();
   });
-  const weather = new WeatherChips($('chips'), (w) => {
-    state.weather = w;
+  const rain = new RainChip($('chips'), (rainy) => {
+    state.rainy = rainy;
     state.selected = null;
     state.mode = 'list';
     state.listLimit = LIST_PAGE_SIZE;
@@ -201,15 +201,14 @@ async function boot(): Promise<void> {
   }
 
   /**
-   * カテゴリ以外の条件（だれと・天気・キーワード）。チップの件数にも使い、
+   * カテゴリ以外の条件（だれと・雨の日・キーワード）。チップの件数にも使い、
    * 「デート」「雨の日」を選んだらカテゴリごとの件数もそれに合わせて変わるようにする。
    * withScene=false は「だれと」の選択肢ごとの件数を数えるとき用（だれと自身では絞らない）。
    */
   function matchesOthers(ev: EventItem, withScene: boolean): boolean {
     if (withScene && state.scene && !ev.scenes?.[state.scene]) return false;
-    // 屋内・屋外が分からないものは、どちらの天気でも残す
-    if (state.weather === 'rainy' && ev.indoor === false) return false;
-    if (state.weather === 'sunny' && ev.indoor === true) return false;
+    // 屋内・屋外が分からないものは雨の日でも残す
+    if (state.rainy && ev.indoor === false) return false;
     const q = state.query.trim().toLowerCase();
     if (q) {
       const hay = `${ev.title} ${ev.venue ?? ''} ${ev.address ?? ''} ${ev.organizer ?? ''}`.toLowerCase();
@@ -258,7 +257,7 @@ async function boot(): Promise<void> {
     }
     strip.setCounts(counts);
 
-    // チップの件数は、その日のイベントを「だれと・天気・キーワード」で絞ったうえで数える
+    // チップの件数は、その日のイベントを「だれと・雨の日・キーワード」で絞ったうえで数える
     // （カテゴリの選択では絞らない。選んでいないカテゴリにも何件あるか見えるように）
     const byCat = new Map<EventCategory, number>();
     const byScene = new Map<Scene, number>();
@@ -349,12 +348,11 @@ async function boot(): Promise<void> {
         }),
       );
     }
-    if (state.weather) {
-      const meta = WEATHER_META[state.weather];
+    if (state.rainy) {
       tags.push(
-        filterTag(`${meta.emoji} ${meta.label}・${meta.note}`, () => {
-          state.weather = null;
-          weather.set(null);
+        filterTag(`${RAIN_LABEL}・${RAIN_NOTE}`, () => {
+          state.rainy = false;
+          rain.set(false);
           state.listLimit = LIST_PAGE_SIZE;
           refresh();
         }),
