@@ -190,8 +190,14 @@ async function boot(): Promise<void> {
   /** 日付以外の条件（カテゴリ・キーワード）を適用した集合。日別件数の計算にも使う。 */
   function baseFiltered(): EventItem[] {
     return state.bundle.events.filter(
-      (ev) => (state.categories.size === 0 || state.categories.has(ev.category)) && matchesOthers(ev, true),
+      (ev) => inSelectedCategories(ev) && matchesOthers(ev, true),
     );
+  }
+
+  /** 選んでいるカテゴリのどれかに入っているか。イベントは複数のカテゴリに入りうる。 */
+  function inSelectedCategories(ev: EventItem): boolean {
+    if (state.categories.size === 0) return true;
+    return (ev.categories ?? [ev.category]).some((c) => state.categories.has(c));
   }
 
   /**
@@ -260,11 +266,12 @@ async function boot(): Promise<void> {
     for (const ev of state.bundle.events) {
       if (!occursOn(ev, state.day) || !matchesOthers(ev, false)) continue;
       // だれとの件数は、選んでいるカテゴリの中で数える
-      if (state.categories.size === 0 || state.categories.has(ev.category)) {
+      if (inSelectedCategories(ev)) {
         for (const s of Object.keys(ev.scenes ?? {}) as Scene[]) byScene.set(s, (byScene.get(s) ?? 0) + 1);
       }
       if (state.scene && !ev.scenes?.[state.scene]) continue;
-      byCat.set(ev.category, (byCat.get(ev.category) ?? 0) + 1);
+      // 2つのカテゴリに入るものは、両方のチップで数える（「すべて」は1件として数える）
+      for (const c of ev.categories ?? [ev.category]) byCat.set(c, (byCat.get(c) ?? 0) + 1);
       catTotal++;
     }
     chips.setCounts(byCat, catTotal);

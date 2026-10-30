@@ -59,9 +59,12 @@ const EXPERIENCE = new RegExp(
   'i',
 );
 
-/** キャラクター・作品もの。展示もコラボカフェもポップアップもここ。 */
-const CHARACTER = new RegExp(
+/** アニメ・漫画・ゲーム・キャラクターもの。展示もコラボカフェもコラボ企画もポップアップもここ。 */
+const ANIME = new RegExp(
   [
+    '原画展|声優|ボカロ|初音ミク|VTuber|ホロライブ|にじさんじ|ヒロアカ|進撃の巨人|エヴァンゲリオン|EVANGELION|ラブライブ|ウマ娘',
+    'ハイキュー|チェンソーマン|SPY×FAMILY|スパイファミリー|推しの子|ブルーロック|ゴジラ|ピカチュウ|ハローキティ|マイメロ|シナモロール',
+    'ポムポムプリン|POMPOMPURIN|クロミ|ミニオン|トミカ|プラレール|アイドルマスター|ピューロランド|Puroland',
     'ポップアップ|POP\\s?UP|コラボ|キャラクター|アニメ|漫画|マンガ|まんが|劇場版|サンリオ|ポケモン|ちいかわ|ジブリ|ディズニー|ピクサー',
     'ドラえもん|アンパンマン|すみっコ|リラックマ|スヌーピー|ミッフィー|ピングー|たべっ子|呪術|鬼滅|ワンピース',
     'ガンダム|ウルトラマン|仮面ライダー|プリキュア|ハリー・?ポッター|ホグワーツ|刃牙|妖怪|コナン',
@@ -183,7 +186,7 @@ const SPORTS =
 const NOT_LEISURE = /企画展|企画展示|展覧会|特別展|ギャラリー/;
 
 const MUSIC =
-  /ライブ|LIVE|コンサート|音楽|ミュージック|ロック(?!ス)|ジャズ|和太鼓|オーケストラ|交響|フィルハーモニー|吹奏楽|リサイタル|演奏会|DJ|ワンマン|ツアー20\d\d|アイドル|オペラ/i;
+  /ライブ|LIVE|コンサート|音楽|ミュージック|(?<!ブルー)ロック(?!ス)|ジャズ|和太鼓|オーケストラ|交響|フィルハーモニー|吹奏楽|リサイタル|演奏会|DJ|ワンマン|ツアー20\d\d|アイドル|オペラ/i;
 
 const ART =
   /展覧会|美術|アート|写真展|個展|企画展|特別展|展示|博物館|ミュージアム|ギャラリー|作品展|コレクション展|展$|展[「（(\s　～〜]/;
@@ -202,61 +205,64 @@ export function isFoodEvent(title: string): boolean {
   return FOOD_EVENT.test(title) || FOOD_EVENT_EN.test(title);
 }
 
-/** エンタメ系のどれか。当てはまらなければ null。 */
-function entertainmentOf(title: string): EventCategory | null {
-  if (SERIOUS_EXHIBITION.test(title) || NOT_ENTERTAINMENT.test(title)) return null;
-  if (EXPERIENCE.test(title)) return 'experience';
-  if (CHARACTER.test(title)) return 'character';
-  if (STAGE.test(title) && !NOT_STAGE.test(title)) return 'stage';
-  // 「〇〇がいっぱい展」のような、見て楽しむ系の展示
-  if (/展/.test(title) && PLAYFUL_EXHIBITION.test(title)) return 'experience';
-  return null;
-}
-
-/** レジャー系のどれか。当てはまらなければ null。 */
-function leisureOf(title: string): EventCategory | null {
-  if (NOT_LEISURE.test(title)) return null;
-  if (PARK.test(title)) return 'park';
-  if (SPORTS.test(title)) return 'sports';
-  // 「温泉イルミネーション」「紅葉ハイキング」は景色を見に行くほう
-  if (NATURE.test(title)) return 'nature';
-  if (OUTDOOR.test(title)) return 'outdoor';
-  return null;
-}
-
 /**
  * タイトルだけでカテゴリを決め直す。収集時のカテゴリは「勉強会」かどうかの手がかりにしか使わない
  * （収集側は「フェス」の語だけで音楽、「大会」だけでスポーツにしていて当てにならない）。
  * 説明文も見ない。「グルメも楽しめる」のような添え物の話が多く、混ざる元になる。
  *
- * 見る順番に意味がある。習いごとを最初に外し、そのあとは
- * グルメ → 遊園地・動物園などの施設 → エンタメ系 → 花火 → 紅葉・花・夜景 → 祭り → レジャー系 → 音楽 → アート
- * の順に当てていく（チップの並び順とは別）。
+ * 当てはまるものは全部返す（「水族館のアニメコラボ」は動物園・遊園地とアニメの両方）。
+ * 並びに意味があり、先頭が主なカテゴリ（ピンの色）になる:
+ * グルメ → 遊園地・動物園などの施設 → エンタメ系 → 花火 → 紅葉・花・夜景 → 祭り → レジャー系 → 音楽。
  * 「何をしに行くのか」を見失わないための順番。花やしきのハロウィンは遊園地、
- * 「コスモスまつり」は花を見に行くので紅葉・花、「謎解き×水族館」は水族館。
+ * 「コスモスまつり」は花を見に行くので紅葉・花。
  * 施設だけはタイトルに無くても会場名で見る（会場が「浅草花やしき」など）。
+ *
+ * 習いごと・休日の行き先でないもの、アート・マルシェは、ほかに何も当てはまらないときだけ。
+ * 「ドラえもん展」をアートにも入れると、アートが展示だらけになるため。
  */
-export function classify(ev: EventItem): EventCategory {
+export function categoriesOf(ev: EventItem): EventCategory[] {
   const title = ev.title;
 
-  if (NOT_AN_OUTING.test(title)) return 'other';
-  if (LESSON.test(title)) return 'tech';
-  if (isFoodEvent(title)) return 'food';
-  if (PARK_PLACE.test(`${title} ${ev.venue ?? ''}`) && !NOT_LEISURE.test(title)) return 'park';
-  const ent = entertainmentOf(title);
-  if (ent) return ent;
-  if (MUSIC_FES.test(title)) return 'music';
-  if (FIREWORKS.test(title)) return 'fireworks';
-  if (NATURE.test(title) && !NOT_LEISURE.test(title)) return 'nature';
-  if (FESTIVAL.test(title) && !NOT_FESTIVAL.test(title)) return 'festival';
-  const leisure = leisureOf(title);
-  if (leisure) return leisure;
-  if (MUSIC.test(title)) return 'music';
-  if (ART.test(title)) return 'art';
-  if (MARKET.test(title)) return 'market';
+  if (NOT_AN_OUTING.test(title)) return ['other'];
+  if (LESSON.test(title)) return ['tech'];
+
+  const out = new Set<EventCategory>();
+  const add = (cat: EventCategory, hit: boolean): void => {
+    if (hit) out.add(cat);
+  };
+  const leisureOk = !NOT_LEISURE.test(title);
+  const entOk = !SERIOUS_EXHIBITION.test(title) && !NOT_ENTERTAINMENT.test(title);
+
+  add('food', isFoodEvent(title));
+  add('park', leisureOk && PARK_PLACE.test(`${title} ${ev.venue ?? ''}`));
+  // 「〇〇がいっぱい展」のような、見て楽しむ系の展示も体験に
+  add('experience', entOk && (EXPERIENCE.test(title) || (/展/.test(title) && PLAYFUL_EXHIBITION.test(title))));
+  add('anime', entOk && ANIME.test(title));
+  add('stage', entOk && STAGE.test(title) && !NOT_STAGE.test(title));
+  add('music', MUSIC_FES.test(title));
+  add('fireworks', FIREWORKS.test(title));
+  add('nature', leisureOk && NATURE.test(title));
+  add('festival', FESTIVAL.test(title) && !NOT_FESTIVAL.test(title));
+  add('park', leisureOk && PARK.test(title));
+  add('sports', leisureOk && SPORTS.test(title));
+  add('outdoor', leisureOk && OUTDOOR.test(title));
+
+  if (out.size > 0) {
+    // 「アニメのライブ」「花火と音楽の祭典」のように音楽がついてくるものは音楽にも
+    add('music', MUSIC.test(title));
+    return [...out];
+  }
+  if (MUSIC.test(title)) return ['music'];
+  if (ART.test(title)) return ['art'];
+  if (MARKET.test(title)) return ['market'];
   // connpass などの勉強会はタイトルに決まった語が無いことも多いので、収集元の判定を残す
-  if (ev.category === 'tech') return 'tech';
-  return 'other';
+  if (ev.category === 'tech') return ['tech'];
+  return ['other'];
+}
+
+/** 主なカテゴリ（categoriesOf の先頭）。 */
+export function classify(ev: EventItem): EventCategory {
+  return categoriesOf(ev)[0];
 }
 
 /*
@@ -285,7 +291,7 @@ const INDOOR_DEFAULT: Partial<Record<EventCategory, boolean>> = {
   fireworks: false,
   market: false,
   experience: true,
-  character: true,
+  anime: true,
   stage: true,
   music: true,
   art: true,
@@ -304,7 +310,8 @@ export function indoorOf(ev: EventItem): boolean | undefined {
 /** 読み込んだ全イベントのカテゴリ（と屋内・屋外）をその場で直す。 */
 export function reclassify(events: EventItem[]): void {
   for (const ev of events) {
-    ev.category = classify(ev);
+    ev.categories = categoriesOf(ev);
+    ev.category = ev.categories[0];
     ev.indoor = indoorOf(ev);
   }
 }

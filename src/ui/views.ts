@@ -42,6 +42,16 @@ function row(dt: string, dd: string | Node): HTMLDivElement {
   return el;
 }
 
+/** 「🎡 動物園・遊園地・🧸 アニメ」のように、入っているカテゴリを全部並べる。 */
+function categoryLabel(ev: EventItem): string {
+  return (ev.categories ?? [ev.category])
+    .map((c) => {
+      const m = CATEGORY_META[c] ?? CATEGORY_META.other;
+      return `${m.emoji} ${m.label}`;
+    })
+    .join('　');
+}
+
 /** 一覧に出す紹介文。説明文の空白を詰めただけのもの（行数は CSS で切る）。 */
 function summaryOf(ev: EventItem): string | null {
   const text = ev.description?.replace(/\s+/g, ' ').trim();
@@ -107,7 +117,7 @@ export function eventCard(
   // 何のイベントかを先に見せる。期間よりカテゴリと中身の紹介を優先する
   const cat = document.createElement('span');
   cat.className = 'card__cat';
-  cat.textContent = `${meta.emoji} ${meta.label}`;
+  cat.textContent = categoryLabel(ev);
 
   const title = document.createElement('span');
   title.className = 'card__title';
@@ -231,7 +241,7 @@ export function detailView(
 
     const tag = document.createElement('span');
     tag.className = 'detail__cat detail__cat--onhero';
-    tag.textContent = `${meta.emoji} ${meta.label}`;
+    tag.textContent = categoryLabel(ev);
     hero.appendChild(tag);
 
     frag.appendChild(hero);
@@ -239,7 +249,7 @@ export function detailView(
     const cat = document.createElement('div');
     cat.className = 'detail__cat';
     cat.style.setProperty('--cat-color', meta.color);
-    cat.textContent = `${meta.emoji} ${meta.label}`;
+    cat.textContent = categoryLabel(ev);
     frag.appendChild(cat);
   }
 

@@ -100,16 +100,16 @@ const RULES: Record<Scene, Rule> = {
 const CATEGORY_BONUS: Record<Scene, Partial<Record<EventCategory, number>>> = {
   date: {
     food: 5, park: 5, nature: 5, outdoor: 5, experience: 5, stage: 5, fireworks: 5,
-    music: 4, art: 4, character: 3, festival: 3, sports: 3, market: 2,
+    music: 4, art: 4, anime: 3, festival: 3, sports: 3, market: 2,
   },
   friends: {
     food: 5, park: 5, outdoor: 5, sports: 5, experience: 5, stage: 5, fireworks: 5, festival: 5, music: 5,
-    character: 4, nature: 3, art: 2, market: 2,
+    anime: 4, nature: 3, art: 2, market: 2,
   },
   family: {
-    park: 5, outdoor: 5, festival: 5, fireworks: 4, nature: 3, food: 3, character: 3, experience: 2, market: 2,
+    park: 5, outdoor: 5, festival: 5, fireworks: 4, nature: 3, food: 3, anime: 3, experience: 2, market: 2,
   },
-  solo: { art: 5, stage: 4, music: 4, market: 3, nature: 3, character: 3, experience: 2 },
+  solo: { art: 5, stage: 4, music: 4, market: 3, nature: 3, anime: 3, experience: 2 },
 };
 
 /** おすすめ度。0 ならそのシーンには出さない。 */
@@ -120,7 +120,8 @@ export function sceneScore(ev: EventItem, scene: Scene): number {
   // 向かない語はタイトルだけで見る。説明文の「お子様連れもOK」などで外さないため
   if (rule.minus?.test(ev.title)) return 0;
 
-  let score = CATEGORY_BONUS[scene][ev.category] ?? 0;
+  // 複数のカテゴリに入るものは、いちばん向いているカテゴリで見る
+  let score = Math.max(0, ...(ev.categories ?? [ev.category]).map((c) => CATEGORY_BONUS[scene][c] ?? 0));
   for (const [re, w] of rule.plus) {
     // タイトルに出てくる語のほうが、そのイベントの主役である可能性が高い
     if (re.test(ev.title)) score += w * 2;

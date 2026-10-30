@@ -13,9 +13,9 @@ export type EventCategory =
   | 'outdoor' // キャンプ・味覚狩り・釣り・ハイキング・温泉・クルーズ
   | 'sports' // スポーツ観戦・マラソン大会
   | 'experience' // 謎解き・脱出・お化け屋敷・チームラボ・「〇〇すぎる展」
-  | 'character' // アニメ・キャラクターの展示、コラボカフェ、ポップアップ
+  | 'anime' // アニメ・漫画・ゲーム・キャラクターのイベント、コラボカフェ・コラボ企画、ポップアップ
   | 'stage' // お笑い・落語・演劇・ミュージカル・サーカス・映画祭
-  | 'festival' // 祭り・縁日・盆踊り・ハロウィン
+  | 'festival' // 神社や町のお祭り・縁日・盆踊り
   | 'fireworks' // 花火大会
   | 'music' // ライブ・コンサート・音楽フェス
   | 'art' // 展覧会・美術館・写真展
@@ -32,7 +32,14 @@ export interface EventItem {
   id: string;
   title: string;
   description?: string;
+  /** 主なカテゴリ。地図のピンの色・絵文字に使う。 */
   category: EventCategory;
+  /**
+   * 当てはまるカテゴリ全部（先頭が category）。**events.json には入っていない**。
+   * 「水族館のアニメコラボ」のように、どちらにも入るものは両方のチップに出す。
+   * 読み込み時に src/classify.ts が付ける。
+   */
+  categories?: EventCategory[];
   /**
    * 「デート」「友達と」などのシーン別おすすめ度。**events.json には入っていない**。
    * 読み込み時に src/scenes.ts がタイトルと説明文から付ける。入っていないシーンには出さない。
@@ -138,11 +145,11 @@ export const CATEGORY_META: Record<EventCategory, CategoryMeta> = {
     emoji: '🧩',
     desc: '謎解き・脱出ゲーム・お化け屋敷・チームラボ・プラネタリウム・「〇〇すぎる展」のような体験型の展示',
   },
-  character: {
-    label: 'キャラ・コラボ',
+  anime: {
+    label: 'アニメ',
     color: '#f472b6',
     emoji: '🧸',
-    desc: 'アニメ・キャラクターの展示、コラボカフェ、ポップアップストアなど',
+    desc: 'アニメ・漫画・ゲーム・キャラクターのイベントや展示、コラボカフェ、コラボ企画、ポップアップストアなど',
   },
   stage: {
     label: 'お笑い・舞台',
