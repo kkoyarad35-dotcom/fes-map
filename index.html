@@ -18,7 +18,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="./icon.svg" />
+    <!-- iPhone のホーム画面アイコンは SVG を読まない（画面の縮小写真になる）ので PNG を渡す -->
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-title" content="ナニスル" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>ナニスル — 休みの日にナニする？近くのイベントを地図で探す</title>
   </head>
   <body>

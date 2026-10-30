@@ -53,6 +53,28 @@ body {
     Meiryo, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /*
+   * アプリらしさのため、画面の文字は長押ししても選択・コピーのメニューを出さない。
+   * 紹介文や住所など、写したいかもしれない所だけ下で選べるように戻す。
+   */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* ダブルタップでの拡大（ブラウザの挙動）を止め、タップの反応を速くする */
+  touch-action: manipulation;
+}
+
+input,
+.detail__desc,
+.detail__rows dd {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* 画像の長押しで保存メニューやドラッグが出ないように */
+img {
+  -webkit-user-drag: none;
 }
 
 button {
@@ -803,7 +825,11 @@ select.chip--scene option {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 0 12px calc(var(--safe-bottom) + 24px);
+  /*
+   * シートは画面の高さのまま下へずらして段を作っている（sheet.ts）。半分の段では
+   * 下の --sheet-offset ぶんが画面の外にあるので、そのぶん余白を足さないと最後のほうまでスクロールできない。
+   */
+  padding: 0 12px calc(var(--sheet-offset, 0px) + var(--safe-bottom) + 24px);
 }
 
 .sheet__title {
@@ -839,11 +865,109 @@ select.chip--scene option {
   background: none;
   text-align: left;
   border-radius: 14px;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
 }
 
+/* 押した感触。ネイティブアプリのリストのように少し沈む */
 .card:active {
   background: var(--surface-2);
+  transform: scale(0.985);
+}
+
+/* 詳細を開いたときは、横から滑り込ませる（main.ts の selectEvent） */
+.sheet__body.slide-in {
+  animation: slide-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+.chip:active,
+.sheet__toggle:active,
+.btn:active,
+.detail__back:active {
+  transform: scale(0.95);
+}
+
+/* ホーム画面に追加の案内（install.ts） */
+.install {
+  position: absolute;
+  left: 12px;
+  right: 68px;
+  bottom: calc(var(--sheet-peek, 152px) + 12px);
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: 12.5px;
+  line-height: 1.45;
+  transition: bottom 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.install[hidden] {
+  display: none;
+}
+
+.install img {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.install__text {
+  flex: 1;
+}
+
+.install__text strong {
+  display: block;
+  font-size: 13px;
+}
+
+.install__go {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.install__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+@media (min-width: 720px) {
+  .install {
+    right: auto;
+    width: 360px;
+    bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet__body.slide-in {
+    animation: none;
+  }
 }
 
 /* 選んでいる1件は、カテゴリ色の縁で示す（地図のピンと対応する） */

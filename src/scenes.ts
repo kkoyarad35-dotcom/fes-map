@@ -3,7 +3,7 @@ import type { EventCategory, EventItem } from './types';
 /**
  * 「誰と行くか」で選ぶおすすめ。カテゴリ（グルメ・音楽…）とは別の軸。
  *
- * カテゴリから機械的に決めるのではなく、タイトルと説明文の中身で判断する。
+ * カテゴリ（CATEGORY_BONUS）を土台に、タイトルと説明文の語で上乗せ・除外する。
  * 1つのイベントが複数のシーンに入ってよい（花火大会はデートにも友達にも家族にも向く）。
  */
 export type Scene = 'date' | 'friends' | 'family' | 'solo';
@@ -38,6 +38,7 @@ const RULES: Record<Scene, Rule> = {
       [/紅葉|もみじ|桜|梅|バラ|ローズ|コスモス|秋桜|ひまわり|花畑|庭園|ガーデン/, 2],
       [/ワイン|オクトーバーフェスト|ビール|スイーツ|チョコ|カフェ|パン|コーヒー|珈琲/, 2],
       [/クルーズ|夜市|マーケット|マルシェ/, 1],
+      [/狩り|収穫|温泉|遊園地|観覧車|ゴンドラ|ロープウェイ|展望/, 2],
       [/ジャズ|クラシック|コンサート|ミュージカル|演奏会|ライブ/, 2],
       [/謎解き|脱出/, 1],
       [/ハロウィン|クリスマス/, 2],
@@ -88,16 +89,27 @@ const RULES: Record<Scene, Rule> = {
 };
 
 /**
- * カテゴリそのものがシーンに向く場合の上乗せ。classify.ts で決めたカテゴリを使う。
- * 語だけで見ていたころは、デートを選ぶとグルメが1件も出なかった
- * （フードフェスは恋人とも友達とも行くのに、「ワイン」「スイーツ」くらいしか拾えていなかった）。
- * 5 = MIN_SCORE なので、そのカテゴリなら（向かない語が無いかぎり）必ず入る。
+ * 判定の土台は「カテゴリ」。デートも友達も、行き先の大半は同じ（フードフェス・りんご狩り・遊園地…）。
+ * 違いは「向かないもの」（minus）と並び順（RULES の語の重み）で付ける。
+ *
+ * 以前は語だけで見ていて、デートはイルミネーション・美術館など「デートっぽい語」があるものだけ、
+ * 友達はフェス・ビールなどだけだったので、りんご狩りやフードフェスがデートに出なかった。
+ * 5 = MIN_SCORE なので、5 のカテゴリは（向かない語が無いかぎり）全部入る。
+ * 5 未満のカテゴリは、RULES の語がタイトルか説明文にあれば入る。
  */
 const CATEGORY_BONUS: Record<Scene, Partial<Record<EventCategory, number>>> = {
-  date: { food: 5, nature: 3, fireworks: 5, experience: 3, stage: 2, character: 2, park: 2 },
-  friends: { food: 5, experience: 3, fireworks: 3, festival: 2, sports: 3, outdoor: 3, stage: 2 },
-  family: { park: 4, outdoor: 2, festival: 1 },
-  solo: { art: 3, stage: 1 },
+  date: {
+    food: 5, park: 5, nature: 5, outdoor: 5, experience: 5, stage: 5, fireworks: 5,
+    music: 4, art: 4, character: 3, festival: 3, sports: 3, market: 2,
+  },
+  friends: {
+    food: 5, park: 5, outdoor: 5, sports: 5, experience: 5, stage: 5, fireworks: 5, festival: 5, music: 5,
+    character: 4, nature: 3, art: 2, market: 2,
+  },
+  family: {
+    park: 5, outdoor: 5, festival: 5, fireworks: 4, nature: 3, food: 3, character: 3, experience: 2, market: 2,
+  },
+  solo: { art: 5, stage: 4, music: 4, market: 3, nature: 3, character: 3, experience: 2 },
 };
 
 /** おすすめ度。0 ならそのシーンには出さない。 */

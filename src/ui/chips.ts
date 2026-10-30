@@ -88,6 +88,7 @@ export class CategoryChips {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         longPressed = true;
+        navigator.vibrate?.(12); // Android では軽く震わせて、長押しが効いたことを伝える
         showTip(btn, `${emoji} ${label}`, desc);
       }, LONG_PRESS_MS);
     });

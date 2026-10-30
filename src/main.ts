@@ -19,6 +19,7 @@ import { DateStrip } from './ui/dateStrip';
 import { Sheet } from './ui/sheet';
 import { creditBlock, detailView, emptyState, eventCard } from './ui/views';
 import { setupUpdateButton } from './update';
+import { setupInstallBanner } from './ui/install';
 import type { EventBundle, EventCategory, EventItem } from './types';
 
 /** 何日先まで見られるようにするか。「1ヶ月先まで」の要件をこれで満たす。 */
@@ -400,17 +401,7 @@ async function boot(): Promise<void> {
   function renderDetail(ev: EventItem): void {
     sheet.body.replaceChildren();
     sheet.body.scrollTop = 0;
-    sheet.body.appendChild(
-      detailView(ev, state.day, state.origin, {
-        onBack: () => {
-          // かたまりから開いたなら、その一覧に戻したほうが迷わない
-          state.mode = state.cluster ? 'cluster' : 'list';
-          state.selected = null;
-          map.setSelected(null);
-          refresh();
-        },
-      }),
-    );
+    sheet.body.appendChild(detailView(ev, state.day, state.origin, { onBack: () => navigateBack() }));
     sheet.head.replaceChildren();
     const title = document.createElement('div');
     title.className = 'sheet__title';
@@ -419,6 +410,8 @@ async function boot(): Promise<void> {
   }
 
   function selectEvent(ev: EventItem): void {
+    // 詳細から別の詳細へ移るときは、戻る先を増やさない
+    pushView(state.mode !== 'detail');
     state.selected = ev;
     state.mode = 'detail';
     map.setSelected(ev.id);
@@ -426,7 +419,43 @@ async function boot(): Promise<void> {
     sheet.raiseAtLeast('half');
     map.focusEvent(ev);
     renderDetail(ev);
+    sheet.body.classList.remove('slide-in');
+    void sheet.body.offsetWidth; // アニメーションを最初からやり直させる
+    sheet.body.classList.add('slide-in');
   }
+
+  // ---- 戻る操作 ----
+  /*
+   * 詳細やかたまりの一覧を開くたびに履歴を1つ積む。Android の戻るボタンや
+   * 端からのスワイプで、アプリを閉じずに1つ前の画面へ戻れるようにするため（ネイティブアプリと同じ）。
+   * 画面内の「← 戻る」も history.back() を通して、履歴と画面をずらさない。
+   */
+  function pushView(push: boolean): void {
+    if (push) history.pushState({ nanisuru: true }, '');
+  }
+
+  function navigateBack(): void {
+    if ((history.state as { nanisuru?: boolean } | null)?.nanisuru) history.back();
+    else stepBack();
+  }
+
+  /** 1つ前の画面に戻す。詳細 → （かたまりから開いたなら）かたまりの一覧 → すべての一覧。 */
+  function stepBack(): void {
+    if (state.mode === 'detail') {
+      state.mode = state.cluster ? 'cluster' : 'list';
+      state.selected = null;
+      map.setSelected(null);
+    } else if (state.mode === 'cluster') {
+      state.cluster = null;
+      state.mode = 'list';
+      state.listLimit = LIST_PAGE_SIZE;
+    } else {
+      return;
+    }
+    refresh();
+  }
+
+  window.addEventListener('popstate', () => stepBack());
 
   // ---- 地図上の件数バッジ ----
 
@@ -470,6 +499,7 @@ async function boot(): Promise<void> {
   // ---- かたまりの中身を一覧で見せる ----
 
   function showClusterList(events: EventItem[]): void {
+    pushView(state.mode === 'list');
     state.cluster = [...events].sort((a, b) => b.scale - a.scale);
     state.mode = 'cluster';
     state.selected = null;
@@ -486,12 +516,7 @@ async function boot(): Promise<void> {
     back.type = 'button';
     back.className = 'detail__back';
     back.textContent = '← すべてのイベントに戻る';
-    back.addEventListener('click', () => {
-      state.cluster = null;
-      state.mode = 'list';
-      state.listLimit = LIST_PAGE_SIZE;
-      refresh();
-    });
+    back.addEventListener('click', () => navigateBack());
 
     const title = document.createElement('div');
     title.className = 'sheet__title';
@@ -541,6 +566,7 @@ async function boot(): Promise<void> {
   });
 
   setupUpdateButton($<HTMLButtonElement>('update'));
+  setupInstallBanner();
 
   refresh();
   strip.select(state.day, true);
